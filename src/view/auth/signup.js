@@ -106,18 +106,15 @@ export default function SignUp() {
                       style={{
                         height: 56,
                         borderRadius: 16,
-                        backgroundColor: colors.surface,
+                        backgroundColor: "#fff",  // White background for the input
                         paddingHorizontal: 20,
                         fontSize: 16,
                         color: colors.text,
-                        shadowColor: colors.shadow,
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 8,
-                        elevation: 3,
+                        borderWidth: 1,
+                        borderColor: "#ccc",  // Light border color
                       }}
                       placeholder="Enter your email"
-                      placeholderTextColor={colors.textLight}
+                      placeholderTextColor="#999"  // Light grey placeholder color
                       keyboardType="email-address"
                       autoCapitalize="none"
                       value={email}
@@ -128,18 +125,15 @@ export default function SignUp() {
                       style={{
                         height: 56,
                         borderRadius: 16,
-                        backgroundColor: colors.surface,
+                        backgroundColor: "#fff",  // White background for the input
                         paddingHorizontal: 20,
                         fontSize: 16,
-                        color: colors.text,
-                        shadowColor: colors.shadow,
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 8,
-                        elevation: 3,
+                        color: "#000",  
+                        borderWidth: 1,
+                        borderColor: "#ccc",  // Light border color
                       }}
                       placeholder="Enter your password"
-                      placeholderTextColor={colors.textLight}
+                      placeholderTextColor="#999"  // Light grey placeholder color
                       secureTextEntry
                       value={password}
                       onChangeText={setPassword}
@@ -149,18 +143,15 @@ export default function SignUp() {
                       style={{
                         height: 56,
                         borderRadius: 16,
-                        backgroundColor: colors.surface,
+                        backgroundColor: "#fff",  // White background for the input
                         paddingHorizontal: 20,
                         fontSize: 16,
-                        color: colors.text,
-                        shadowColor: colors.shadow,
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 8,
-                        elevation: 3,
+                        color: "#000",  
+                        borderWidth: 1,
+                        borderColor: "#ccc",  // Light border color
                       }}
                       placeholder="Confirm your password"
-                      placeholderTextColor={colors.textLight}
+                      placeholderTextColor="#999"  // Light grey placeholder color
                       secureTextEntry
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -174,18 +165,13 @@ export default function SignUp() {
                     style={{
                       height: 56,
                       borderRadius: 16,
-                      backgroundColor: colors.buttonPrimary,
+                      backgroundColor: "#000",  // Black background for the button
                       alignItems: "center",
                       justifyContent: "center",
-                      shadowColor: colors.shadow,
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.2,
-                      shadowRadius: 12,
-                      elevation: 6,
                     }}
                   >
                     <Text style={{ 
-                      color: colors.buttonText, 
+                      color: "#fff",  // White text color for the button
                       fontSize: 18, 
                       fontWeight: "700",
                       letterSpacing: 0.5
@@ -219,11 +205,6 @@ export default function SignUp() {
                         alignItems: "center",
                         justifyContent: "center",
                         paddingHorizontal: 32,
-                        shadowColor: colors.shadow,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.2,
-                        shadowRadius: 12,
-                        elevation: 6,
                       }}
                     >
                       <Text style={{ 
