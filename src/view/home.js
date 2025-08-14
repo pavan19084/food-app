@@ -1,193 +1,405 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
-import { colors } from '../constants/colors';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  FlatList,
+  Image,
+  TouchableOpacity,
+  StatusBar,
+  SafeAreaView,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-const Home = () => {
+const CATEGORY_ITEMS = [
+  { id: 'healthy',  label: 'Healthy',  img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900&h=500&fit=crop&auto=format' },
+  { id: 'biryani',  label: 'Biryani',  img: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxkIYXyQ8YvdloqFq9iZAAcL95GwCk30Kj3g&s' },
+  { id: 'pizza',    label: 'Pizza',    img: 'https://i0.wp.com/olivesandlamb.com/wp-content/uploads/2024/05/Chicken-Parmesan-Pizza-10-4x5-1.jpg?resize=819%2C1024&ssl=1' },
+  { id: 'haleem',   label: 'Haleem',   img: 'https://www.licious.in/blog/wp-content/uploads/2022/04/Chicken-Haleem-Cooked-min-compressed-scaled.jpg' },
+  { id: 'chicken',  label: 'Chicken',  img: 'https://www.shutterstock.com/image-photo/crispy-fried-chicken-on-plate-600nw-2184383193.jpg' },
+  { id: 'burger',   label: 'Burger',   img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=120&h=120&fit=crop&auto=format' },
+  { id: 'cake',     label: 'Cake',     img: 'https://assets.winni.in/product/primary/2023/3/83223.jpeg?dpr=1&w=500' },
+  { id: 'shawarma', label: 'Shawarma', img: 'https://www.munatycooking.com/wp-content/uploads/2023/12/chicken-shawarma-image-feature-2023.jpg' },
+];
+
+const RESTAURANTS = [
+  {
+    id: 'r1',
+    cover: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900&h=500&fit=crop&auto=format',
+    title: 'Eat Healthy',
+    subtitle: 'Healthy food',
+    rating: '4.3',
+    priceForTwo: '40 uro ',
+    badges: ['Healthy', 'DELIVERY'],
+    envNote: 'Always eat healthy, be healthy',
+    onTap: 'Restaurant',  // This is the key for navigation
+  },
+  {
+    id: 'r2',
+    cover: 'https://animationvisarts.com/wp-content/uploads/2023/12/image-19.png',
+    title: 'Amul',
+    subtitle: 'Desserts, Ice Cream, Beverages',
+    rating: '4.2',
+    priceForTwo: '₹15 uro',
+    badges: ['Healthy', 'DELIVERY'],
+    envNote: 'Amul, taste of India',
+    // No onTap for Amul
+  },
+];
+
+const FilterChip = ({ label, filled }) => (
+  <TouchableOpacity style={[
+    styles.chip, 
+    { 
+      backgroundColor: filled ? '#FF6B6B' : '#F0F0F0',
+      borderColor: filled ? '#FF6B6B' : '#E0E0E0'
+    }
+  ]}>
+    <Text style={[
+      styles.chipText, 
+      { color: filled ? '#FFFFFF' : '#333' }
+    ]}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
+const CategoryBubble = ({ item }) => (
+  <View style={styles.catItem}>
+    <Image source={{ uri: item.img }} style={styles.catImage} />
+    <Text style={styles.catLabel} numberOfLines={1}>{item.label}</Text>
+  </View>
+);
+
+const RestaurantCard = ({ item }) => {
+  const navigation = useNavigation();
+
+  const handlePress = () => {
+    if (item.onTap) {
+      // Only navigate if 'onTap' is defined (i.e., for "Eat Healthy")
+      navigation.navigate(item.onTap, {
+        title: item.title,
+        subtitle: item.subtitle,
+        cover: item.cover,
+        envNote: item.envNote,
+      });
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.appTitle}>92 eats</Text>
-          <Text style={styles.welcomeText}>Welcome back!</Text>
-          <Text style={styles.subtitle}>What would you like to eat today?</Text>
-        </View>
+    <TouchableOpacity onPress={handlePress} style={styles.card}>
+      <Image source={{ uri: item.cover }} style={styles.cardImage} />
+      <View style={styles.cardBody}>
+        <Text style={styles.cardTitle}>{item.title}</Text>
+        <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>🍕 Pizza</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>🍔 Burgers</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>🍜 Asian</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>🥗 Healthy</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Featured Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Featured Restaurants</Text>
-          <View style={styles.restaurantCard}>
-            <View style={styles.restaurantInfo}>
-              <Text style={styles.restaurantName}>Pizza Palace</Text>
-              <Text style={styles.restaurantCuisine}>Italian • Pizza</Text>
-              <Text style={styles.restaurantRating}>⭐ 4.8 (2.1k reviews)</Text>
-              <Text style={styles.deliveryInfo}>🕒 25-35 min • 🚚 $2.99 delivery</Text>
-            </View>
+        <View style={styles.metaRow}>
+          <View style={styles.ratingPill}>
+            <Text style={styles.ratingText}>{item.rating} ★</Text>
           </View>
-          
-          <View style={styles.restaurantCard}>
-            <View style={styles.restaurantInfo}>
-              <Text style={styles.restaurantName}>Burger House</Text>
-              <Text style={styles.restaurantCuisine}>American • Burgers</Text>
-              <Text style={styles.restaurantRating}>⭐ 4.6 (1.8k reviews)</Text>
-              <Text style={styles.deliveryInfo}>🕒 20-30 min • 🚚 $1.99 delivery</Text>
-            </View>
-          </View>
+          <Text style={styles.dot}>·</Text>
+          <Text style={styles.priceText}>{item.priceForTwo}</Text>
         </View>
 
-        
-      </ScrollView>
-    </SafeAreaView>
+        <View style={styles.badgeRow}>
+          {item.badges.map(b => (
+            <View key={b} style={styles.badge}>
+              <Text style={styles.badgeText}>{b}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.envNote} numberOfLines={2}>{item.envNote}</Text>
+      </View>
+    </TouchableOpacity>
   );
 };
+
+export default function Home() {
+  const navigation = useNavigation();
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF8F5" />
+
+      {/* Location row */}
+      <View style={styles.locationRow}>
+        <Text style={styles.locationPin}>📍</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.locationCity}>Hyderabad, Telangana</Text>
+          <Text style={styles.locationSub}>Delivering to: Madhapur 500081</Text>
+        </View>
+        <TouchableOpacity onPress={() => { /* open change location modal later */ }}>
+          <Text style={styles.changeText}>Change</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Top search + profile avatar */}
+      <View style={styles.searchRow}>
+        <TextInput
+          placeholder="Restaurant name, cuisine, or a dish..."
+          placeholderTextColor="#999"
+          style={styles.searchInput}
+        />
+        <TouchableOpacity
+          style={styles.profileBtn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Profile')}
+        >
+          <Text style={styles.profileInitials}>U</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {/* Filter chips in one row */}
+        <View style={styles.chipsRow}>
+          <FilterChip label="Healthy" filled />
+          <FilterChip label="PRO" />
+          <FilterChip label="Cuisines" />
+          <FilterChip label="Rating" />
+          <FilterChip label="Popular" />
+        </View>
+
+        {/* Categories */}
+        <Text style={styles.h2}>Eat what makes you happy</Text>
+        <View style={styles.categoriesGrid}>
+          {CATEGORY_ITEMS.map(c => <CategoryBubble key={c.id} item={c} />)}
+        </View>
+
+        {/* Restaurants */}
+        <Text style={styles.h2}>396 restaurants around you</Text>
+        <FlatList
+          data={RESTAURANTS}
+          keyExtractor={it => it.id}
+          renderItem={({ item }) => <RestaurantCard item={item} />}
+          scrollEnabled={false}
+          ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+          contentContainerStyle={{ paddingBottom: 12 }}
+        />
+      </ScrollView>
+    </View>
+  );
+}
+
+const RADIUS = 12;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    paddingTop: 50,
+    backgroundColor: '#FFF8F5',
   },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 32,
-    backgroundColor: colors.primary,
-  },
-  appTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.textWhite,
-    marginBottom: 8,
-    letterSpacing: 1,
-  },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: colors.textWhite,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textWhite,
-    opacity: 0.9,
-  },
-  quickActions: {
+
+  /* LOCATION ROW */
+  locationRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 24,
-    marginTop: -16,
-    marginBottom: 24,
-  },
-  actionButton: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginRight: 12,
-    marginBottom: 12,
-    shadowColor: colors.shadow,
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
+    shadowColor: 'rgba(0,0,0,0.1)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 3,
   },
-  actionButtonText: {
+  locationPin: {
+    fontSize: 18,
+  },
+  locationCity: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+  },
+  locationSub: {
+    fontSize: 12,
+    marginTop: 2,
+    color: '#666',
+  },
+  changeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FF6B6B',
+  },
+
+  /* SEARCH + PROFILE */
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 10,
+    marginTop: 10,
+  },
+  searchInput: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
+    color: '#333',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  /* Profile button */
+  profileBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    backgroundColor: '#FF6B6B',
+    borderColor: '#FF6B6B',
+  },
+  profileInitials: {
+    fontWeight: '800',
     fontSize: 16,
+    color: '#FFFFFF',
+  },
+
+  /* CHIPS, LISTS, CARDS */
+  chipsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    marginBottom: 12,
+  },
+  chip: {
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+  },
+  chipText: { 
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.text,
   },
-  section: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
-  sectionTitle: {
+
+  h2: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 12,
+    color: '#333',
   },
-  restaurantCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
+
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+  },
+  catItem: {
+    width: '25%',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  catImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 3,
+    borderColor: '#FF6B6B',
+  },
+  catLabel: {
+    marginTop: 8,
+    fontSize: 12,
+    textAlign: 'center',
+    color: '#666',
+  },
+
+  card: {
+    marginHorizontal: 16,
+    borderRadius: RADIUS,
+    overflow: 'hidden',
+    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E0E0E0',
     shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
     elevation: 4,
   },
-  restaurantInfo: {
-    flex: 1,
+  cardImage: {
+    width: '100%',
+    height: 180,
   },
-  restaurantName: {
+  cardBody: {
+    padding: 16,
+    gap: 8,
+  },
+  cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
+    color: '#333',
   },
-  restaurantCuisine: {
+  cardSubtitle: {
     fontSize: 14,
-    color: colors.textLight,
-    marginBottom: 8,
+    color: '#666',
   },
-  restaurantRating: {
-    fontSize: 14,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  deliveryInfo: {
-    fontSize: 14,
-    color: colors.textLight,
-  },
-  offerCard: {
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    padding: 24,
+  metaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    gap: 8,
+    marginTop: 4,
   },
-  offerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.textWhite,
-    marginBottom: 8,
+  ratingPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
   },
-  offerDescription: {
-    fontSize: 16,
-    color: colors.textWhite,
-    opacity: 0.9,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  offerCode: {
-    fontSize: 14,
-    color: colors.textWhite,
-    opacity: 0.8,
+  ratingText: { 
+    fontSize: 12,
     fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  dot: { 
+    marginHorizontal: 2,
+    fontSize: 16,
+    color: '#666',
+  },
+  priceText: { 
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  badge: {
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#FFE0E0',
+    borderColor: '#FF6B6B',
+  },
+  badgeText: { 
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF6B6B',
+  },
+
+  envNote: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#666',
   },
 });
-
-export default Home;

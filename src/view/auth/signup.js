@@ -71,7 +71,7 @@ export default function SignUp() {
     <View style={{ flex: 1, backgroundColor: colors.primary }}>
       <LinearGradient colors={[colors.primary, colors.secondary]} style={{ flex: 1 }}>
         <StatusBar barStyle="light-content" />
-        <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1, paddingTop: 50 }}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : undefined}

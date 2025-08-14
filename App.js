@@ -5,6 +5,10 @@ import { createStackNavigator } from "@react-navigation/stack";
 import Login from "./src/view/auth/login";
 import Home from "./src/view/home";
 import SignUp from "./src/view/auth/signup";
+import Profile from "./src/view/profile";
+import EditProfile from './src/view/EditProfile';
+import RestaurantScreen from "./src/view/restaurants/RestaurantScreen";
+import CartScreen from "./src/view/restaurants/CartScreen";
 import "./global.css"
 
 
@@ -28,6 +32,30 @@ export default function App() {
         name="Home"
         component={Home}
         options={{headerShown: false}}
+        />
+        <Stack.Screen
+        name="Profile"
+        component={Profile}
+        options={{headerShown: false}}
+        />
+        <Stack.Screen
+        name="EditProfile"
+        component={EditProfile}
+        options={{headerShown: false}}
+        />
+        <Stack.Screen
+          name="Cart"
+          component={CartScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' }
+          }}
+        />
+        <Stack.Screen
+          name="Restaurant"
+          component={RestaurantScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
