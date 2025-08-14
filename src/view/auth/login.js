@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Image,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import auth from "@react-native-firebase/auth";
@@ -57,15 +58,15 @@ export default function Login() {
             <View style={{ flex: 1, paddingHorizontal: 32, justifyContent: "center" }}>
               {/* App Logo/Title */}
               <View style={{ alignItems: "center", marginBottom: 48 }}>
-                <Text style={{ 
-                  fontSize: 42, 
-                  fontWeight: "800", 
-                  color: colors.textWhite,
-                  marginBottom: 8,
-                  letterSpacing: 1
-                }}>
-                  92 eats
-                </Text>
+                <Image
+                  source={require("../../../assets/logo-small-removebg.png")}
+                  style={{
+                    width: 120,
+                    height: 120,
+                    marginBottom: 16,
+                    resizeMode: "contain"
+                  }}
+                />
                 <Text style={{ 
                   fontSize: 16, 
                   color: colors.textWhite, 
