@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,10 @@ import {
   TouchableOpacity,
   StatusBar,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { LocationService } from '../utils/locationService';
 
 const CATEGORY_ITEMS = [
   { id: 'healthy',  label: 'Healthy',  img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900&h=500&fit=crop&auto=format' },
@@ -119,6 +121,51 @@ const RestaurantCard = ({ item }) => {
 
 export default function Home() {
   const navigation = useNavigation();
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+
+  useEffect(() => {
+    loadLocation();
+  }, []);
+
+  const loadLocation = async () => {
+    try {
+      setIsLoadingLocation(true);
+      const location = await LocationService.getLocationWithFallback();
+      setCurrentLocation(location);
+    } catch (error) {
+      console.error('Error loading location:', error);
+      Alert.alert(
+        'Location Error',
+        'Unable to load location. Please check your location permissions.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
+  const handleLocationSelect = (location) => {
+    setCurrentLocation(location);
+    // Save the new location
+    LocationService.saveLocation(location);
+  };
+
+  const handleRefreshLocation = async () => {
+    try {
+      setIsLoadingLocation(true);
+      const location = await LocationService.updateLocation();
+      setCurrentLocation(location);
+    } catch (error) {
+      Alert.alert(
+        'Location Error',
+        'Unable to refresh location. Please check your location permissions.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -126,12 +173,42 @@ export default function Home() {
 
       {/* Location row */}
       <View style={styles.locationRow}>
-        <Text style={styles.locationPin}>📍</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.locationCity}>Hyderabad, Telangana</Text>
-          <Text style={styles.locationSub}>Delivering to: Madhapur 500081</Text>
-        </View>
-        <TouchableOpacity onPress={() => { /* open change location modal later */ }}>
+        <TouchableOpacity 
+          style={styles.locationInfoContainer}
+          onPress={handleRefreshLocation}
+          disabled={isLoadingLocation}
+        >
+          <Text style={styles.locationPin}>📍</Text>
+          <View style={{ flex: 1 }}>
+            {isLoadingLocation ? (
+              <>
+                <Text style={styles.locationCity}>Loading location...</Text>
+                <Text style={styles.locationSub}>Please wait</Text>
+              </>
+            ) : currentLocation ? (
+              <>
+                <Text style={styles.locationCity}>
+                  {currentLocation.city}, {currentLocation.state}
+                </Text>
+                <Text style={styles.locationSub}>
+                  Delivering to: {currentLocation.street} {currentLocation.postalCode}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.locationCity}>Location unavailable</Text>
+                <Text style={styles.locationSub}>Tap to refresh</Text>
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('LocationModal', { 
+            onLocationSelect: handleLocationSelect, 
+            currentLocation: currentLocation 
+          })}
+          style={styles.changeButton}
+        >
           <Text style={styles.changeText}>Change</Text>
         </TouchableOpacity>
       </View>
@@ -179,6 +256,7 @@ export default function Home() {
           contentContainerStyle={{ paddingBottom: 12 }}
         />
       </ScrollView>
+
     </View>
   );
 }
@@ -208,6 +286,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  locationInfoContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   locationPin: {
     fontSize: 18,
   },
@@ -220,6 +304,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
     color: '#666',
+  },
+  changeButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   changeText: {
     fontSize: 12,

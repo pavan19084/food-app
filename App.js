@@ -9,6 +9,9 @@ import Profile from "./src/view/profile";
 import EditProfile from './src/view/EditProfile';
 import RestaurantScreen from "./src/view/restaurants/RestaurantScreen";
 import CartScreen from "./src/view/restaurants/CartScreen";
+import OrderConfirmationScreen from "./src/view/OrderConfirmationScreen";
+import SavedAddressesScreen from "./src/view/SavedAddressesScreen";
+import LocationModal from "./src/components/LocationModal";
 import "./global.css"
 
 
@@ -55,6 +58,21 @@ export default function App() {
         <Stack.Screen
           name="Restaurant"
           component={RestaurantScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="OrderConfirmation"
+          component={OrderConfirmationScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SavedAddresses"
+          component={SavedAddressesScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="LocationModal"
+          component={LocationModal}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

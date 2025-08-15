@@ -103,14 +103,26 @@ export default function CartScreen({ navigation, route }) {
     );
 
     const handlePlaceOrder = () => {
-        Alert.alert(
-            "Order Placed Successfully!",
-            `Your order of ${totalItems} items worth £${total.toFixed(2)} has been placed.`,
-            [{ text: "OK", onPress: () =>  navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }],
-        }) }]
-        );
+        const orderDetails = {
+            orderId: 'ORD' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+            restaurantName: restaurantName,
+            items: items.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            total: total,
+            deliveryAddress: 'Selected address is 825 m away from your location',
+            estimatedDelivery: '45-50 mins',
+            paymentMethod: selectedPayment === 'card' ? 'Card Payment' : 'Cash on Delivery',
+            orderTime: new Date().toLocaleTimeString(),
+            orderDate: new Date().toLocaleDateString(),
+        };
+        
+        navigation.reset({
+            index: 0,
+            routes: [{ name: 'OrderConfirmation', params: { orderDetails } }],
+        });
     };
 
     return (

@@ -4,32 +4,33 @@
     "slug": "food-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo-small-removebg.png",
+    "icon": "./assets/playstore.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/logo-small-removebg.png",
+      "image": "./assets/bg-remove-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#FF6B35"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pavan1984.foodapp",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "icon": "./assets/playstore.png"
     },
     "android": {
       "googleServicesFile": "./google-services.json",
-      "icon": "./assets/logo-small-removebg.png",
+      "icon": "./assets/playstore.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo-small-removebg.png",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/playstore.png",
+        "backgroundColor": "#FF6B35"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.pavan1984.foodapp"
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/logo-small-removebg.png"
+      "favicon": "./assets/playstore.png"
     },
     "plugins": [
       "@react-native-firebase/app",

@@ -18,7 +18,6 @@ export default function Profile({ navigation }) {
     completion: 80,
     rating: 4.85,
     phone: '+91 98765 43210',
-    location: 'Hyderabad, India',
   };
 
   const getCompletionColor = (percentage) => {
@@ -111,7 +110,7 @@ export default function Profile({ navigation }) {
           <Divider />
           <Item title="Order History" onPress={() => {}} />
           <Divider />
-          <Item title="Saved Addresses" onPress={() => {}} />
+          <Item title="Saved Addresses" onPress={() => navigation.navigate('SavedAddresses')} />
         </Card>
 
         {/* Support & More */}
@@ -266,10 +265,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 2 
-  },
-  userLocation: { 
-    fontSize: 14,
-    color: '#666' 
   },
   
   // Completion Section

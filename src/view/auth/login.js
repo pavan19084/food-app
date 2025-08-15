@@ -58,15 +58,29 @@ export default function Login() {
             <View style={{ flex: 1, paddingHorizontal: 32, justifyContent: "center" }}>
               {/* App Logo/Title */}
               <View style={{ alignItems: "center", marginBottom: 48 }}>
-                <Image
-                  source={require("../../../assets/logo-small-removebg.png")}
-                  style={{
-                    width: 120,
-                    height: 120,
-                    marginBottom: 16,
-                    resizeMode: "contain"
-                  }}
-                />
+                <View style={{
+                  width: 120,
+                  height: 120,
+                  borderRadius: 60,
+                  backgroundColor: '#FFFFFF',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 16,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 16,
+                  elevation: 12,
+                }}>
+                  <Image
+                    source={require("../../../assets/bg-remove-logo.png")}
+                    style={{
+                      width: 120,
+                      height: 120,
+                      resizeMode: "contain",
+                    }}
+                  />
+                </View>
                 <Text style={{ 
                   fontSize: 16, 
                   color: colors.textWhite, 
