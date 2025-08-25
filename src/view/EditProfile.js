@@ -13,15 +13,18 @@ import {
   Platform,
   SafeAreaView
 } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 
 export default function EditProfile({ route, navigation }) {
-  const initial = route?.params?.user || { 
-    name: '', 
-    email: '', 
-    phone: '',
-    dob: '',
-    gender: '',
-    avatar: 'https://i.pravatar.cc/150?img=12'
+  const { user: ctxUser, saveProfile } = useAuth();
+
+  const initial = route?.params?.user || {
+    name: ctxUser?.name || ctxUser?.username || '',
+    email: ctxUser?.email || '',
+    phone: ctxUser?.phone || '',
+    dob: ctxUser?.dob || '',
+    gender: ctxUser?.gender || '',
+    avatar: ctxUser?.avatar || 'https://i.pravatar.cc/150?img=12',
   };
 
   const [formData, setFormData] = useState({
@@ -40,7 +43,7 @@ export default function EditProfile({ route, navigation }) {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const onSave = () => {
+  const onSave = async () => {
     if (!formData.name.trim()) {
       Alert.alert('Error', 'Name is required');
       return;
@@ -50,9 +53,23 @@ export default function EditProfile({ route, navigation }) {
       return;
     }
     
-    // TODO: call your API / context
     Alert.alert('Success', 'Profile updated successfully!');
     navigation.goBack();
+
+      try {
+           await saveProfile({
+             name: formData.name.trim(),
+             email: formData.email.trim(),
+             phone: formData.phone.trim(),
+             dob: formData.dob,
+           gender: formData.gender,
+             avatar: formData.avatar,
+         });
+           Alert.alert('Success', 'Profile updated successfully!');
+           navigation.goBack();
+         } catch (e) {
+           Alert.alert('Update Failed', e?.response?.data?.msg || e?.message || 'Could not update profile');
+        }
   };
 
   const GenderOption = ({ option, onSelect }) => (

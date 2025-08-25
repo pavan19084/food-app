@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   ScrollView,
   StatusBar,
   SafeAreaView,
-  Image,
   Animated,
   BackHandler,
 } from 'react-native';
@@ -15,700 +14,365 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../constants/colors';
 
+const STAGES = [
+  { key: 'confirmed', title: 'Order Confirmed', desc: 'We’ve received your order.', icon: 'checkmark-circle' },
+  { key: 'preparing', title: 'Preparing', desc: 'Restaurant is preparing your food.', icon: 'restaurant' },
+  { key: 'delivery', title: 'Out for Delivery', desc: 'Your order is on the way.', icon: 'bicycle' },
+];
+
+const STAGE_SECONDS = 10; // exactly 10s per stage
+
 export default function OrderConfirmationScreen({ navigation, route }) {
   const { orderDetails } = route?.params || {};
-  
-  // Enhanced animation values
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [scaleAnim] = useState(new Animated.Value(0.8));
-  const [slideAnim] = useState(new Animated.Value(50));
-  
-  // New animation values for staggered effects
-  const [headerSlideAnim] = useState(new Animated.Value(-100));
-  const [cardAnimations] = useState([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]);
-  const [buttonScaleAnim] = useState(new Animated.Value(1));
 
-  // Sample order data if none provided
-  const order = orderDetails || {
-    orderId: 'ORD' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-    restaurantName: 'Eat Healthy',
-    items: [
-      { name: 'Plant Protein Bowl', quantity: 1, price: 8.99 },
-      { name: 'Veggie Strips', quantity: 1, price: 2.50 },
-    ],
-    total: 11.49,
-    deliveryAddress: 'Madhapur, Hyderabad, Telangana 500081',
-    estimatedDelivery: '45-50 mins',
-    paymentMethod: 'Card Payment',
-    orderTime: new Date().toLocaleTimeString(),
-    orderDate: new Date().toLocaleDateString(),
-  };
+  // ---------- Sample order (fallback) ----------
+  const order = useMemo(
+    () =>
+      orderDetails || {
+        orderId: 'ORD' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        restaurantName: 'Eat Healthy',
+        items: [
+          { name: 'Plant Protein Bowl', quantity: 1, price: 8.99 },
+          { name: 'Veggie Strips', quantity: 1, price: 2.5 },
+        ],
+        total: 11.49,
+        deliveryAddress: 'Madhapur, Hyderabad, Telangana 500081',
+        estimatedDelivery: '45–50 mins',
+        paymentMethod: 'Card Payment',
+        orderTime: new Date().toLocaleTimeString(),
+        orderDate: new Date().toLocaleDateString(),
+      },
+    [orderDetails]
+  );
 
-  // Handle back button press - more reliable approach
+  // ---------- Stage / Timer ----------
+  const [stageIndex, setStageIndex] = useState(0); // 0..2 for three timed stages
+  const [secondsLeft, setSecondsLeft] = useState(STAGE_SECONDS);
+  const [isRunning, setIsRunning] = useState(true);
+  const [delivered, setDelivered] = useState(false);
+  const timerRef = useRef(null);
+
+  // ---------- Subtle entrance animations ----------
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(20)).current;
+  const headerScale = useRef(new Animated.Value(0.9)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current; // 0..1 across all stages
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(slideUp, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.spring(headerScale, { toValue: 1, useNativeDriver: true }),
+    ]).start();
+  }, [fadeIn, slideUp, headerScale]);
+
+  // Animate progress bar width smoothly
+  useEffect(() => {
+    const totalSteps = STAGES.length; // 3
+    const progress = delivered ? 1 : stageIndex / (totalSteps - 1); // 0, 0.5, 1.0
+    Animated.timing(progressAnim, { toValue: progress, duration: 400, useNativeDriver: false }).start();
+  }, [stageIndex, delivered, progressAnim]);
+
+  // 10s per stage timer
+  useEffect(() => {
+    if (!isRunning || delivered) return;
+
+    timerRef.current = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          // move to next stage or finish
+          if (stageIndex < STAGES.length - 1) {
+            setStageIndex((i) => i + 1);
+            return STAGE_SECONDS;
+          } else {
+            // finished all 3 stages
+            setDelivered(true);
+            setIsRunning(false);
+            return 0;
+          }
+        }
+        return s - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isRunning, delivered, stageIndex]);
+
+  // Back → Home
   useFocusEffect(
     React.useCallback(() => {
       const onBackPress = () => {
-        // Redirect to home when back button is pressed
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }],
-        });
-        return true; // Prevent default back behavior
+        navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+        return true;
       };
-
       const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
       return () => backHandler.remove();
     }, [navigation])
   );
 
-  // Disable back button in navigation header
+  // Disable header back & gestures
   useEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => null, // Remove back button from header
-      gestureEnabled: false, // Disable swipe back gesture
-    });
+    navigation.setOptions({ headerLeft: () => null, gestureEnabled: false });
   }, [navigation]);
 
-  useEffect(() => {
-    // Enhanced entrance animation sequence
-    const animationSequence = () => {
-      // Header animation
-      Animated.spring(headerSlideAnim, {
-        toValue: 0,
-        tension: 100,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
+  const currentStage = delivered ? { title: 'Delivered', desc: 'Enjoy your meal!', icon: 'checkmark-done' } : STAGES[stageIndex];
 
-      // Main success header with bounce effect
-      Animated.sequence([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1.1,
-          tension: 200,
-          friction: 5,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+  const format = (sec) => `0:${String(sec).padStart(2, '0')}`;
 
-      // Staggered card animations
-      const cardAnimationsSequence = cardAnimations.map((anim, index) => {
-        return Animated.sequence([
-          Animated.delay(index * 150),
-          Animated.parallel([
-            Animated.timing(anim, {
-              toValue: 1,
-              duration: 800,
-              useNativeDriver: true,
-            }),
-            Animated.spring(slideAnim, {
-              toValue: 0,
-              tension: 100,
-              friction: 8,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]);
-      });
+  const handleTrackOrder = () => navigation.navigate('OrderTracking', { orderId: order.orderId });
+  const handleBackToHome = () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+  const handleViewOrders = () => navigation.navigate('OrderHistory');
 
-      Animated.parallel(cardAnimationsSequence).start();
-    };
-
-    // Start animation sequence after a brief delay
-    const timer = setTimeout(animationSequence, 300);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Interactive button animations
-  const animateButtonPress = (callback) => {
-    Animated.sequence([
-      Animated.timing(buttonScaleAnim, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonScaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      if (callback) callback();
-    });
-  };
-
-  const handleTrackOrder = () => {
-    animateButtonPress(() => {
-      navigation.navigate('OrderTracking', { orderId: order.orderId });
-    });
-  };
-
-  const handleViewOrders = () => {
-    animateButtonPress(() => {
-      navigation.navigate('OrderHistory');
-    });
-  };
-
-  const handleBackToHome = () => {
-    animateButtonPress(() => {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
-    });
-  };
-
-  const handleSupportPress = () => {
-    animateButtonPress(() => {
-      // Handle support contact
-      console.log('Contact support');
-    });
-  };
+  // visual widths for progress
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      
+      <StatusBar barStyle="dark-content" backgroundColor={colors.lightMode.background} />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Success Header */}
-        <Animated.View 
-          style={[
-            styles.successHeader,
-            { 
-              opacity: fadeAnim, 
-              transform: [
-                { scale: scaleAnim },
-                { translateX: headerSlideAnim }
-              ] 
-            }
-          ]}
-        >
-          <View style={styles.successIconContainer}>
-            <Ionicons name="checkmark-circle" size={80} color={colors.success} />
+        {/* Header */}
+        <Animated.View style={[styles.headerWrap, { opacity: fadeIn, transform: [{ translateY: slideUp }, { scale: headerScale }] }]}>
+          <View style={styles.badge}>
+            <Ionicons name={currentStage.icon} size={56} color={colors.success} />
           </View>
-          <Text style={styles.successTitle}>Order Placed Successfully!</Text>
-          <Text style={styles.successSubtitle}>
-            Your order has been confirmed and is being prepared
+          <Text style={styles.titleText}>
+            {delivered ? 'Order Delivered 🎉' : 'Order Placed Successfully!'}
           </Text>
+          <Text style={styles.subText}>
+            {delivered ? 'Your order has reached your location.' : 'Your order is confirmed and being handled.'}
+          </Text>
+
+          <View style={styles.stagePill}>
+            <View style={[styles.dot, { backgroundColor: delivered ? colors.success : colors.primary }]} />
+            <Text style={styles.stagePillText}>
+              {currentStage.title}
+              {!delivered && ` • ${format(secondsLeft)} left`}
+            </Text>
+          </View>
         </Animated.View>
 
-        {/* Order Details Card */}
-        <Animated.View 
-          style={[
-            styles.orderCard,
-            { 
-              opacity: cardAnimations[0],
-              transform: [{ translateY: slideAnim }] 
-            }
-          ]}
-        >
+        {/* Progress */}
+        <View style={styles.progressCard}>
+          <View style={styles.progressBar}>
+            <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+          </View>
+          <Text style={styles.progressLabel}>
+            {delivered ? '100% • Delivered' : `Step ${stageIndex + 1} of ${STAGES.length}`}
+          </Text>
+
+          <View style={styles.stagesRow}>
+            {STAGES.map((s, i) => {
+              const isDone = delivered ? true : i < stageIndex;
+              const isNow = !delivered && i === stageIndex;
+              return (
+                <View key={s.key} style={styles.stageChip}>
+                  <View
+                    style={[
+                      styles.stageIconCircle,
+                      { backgroundColor: isDone ? colors.success : isNow ? colors.primary : colors.lightMode.background },
+                    ]}
+                  >
+                    {isDone ? (
+                      <Ionicons name="checkmark" size={16} color={colors.lightMode.textWhite} />
+                    ) : (
+                      <Text style={styles.stageNumber}>{i + 1}</Text>
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.stageChipText,
+                      isDone && { color: colors.success },
+                      isNow && { color: colors.primary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {s.title}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Order Details */}
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <MaterialIcons name="receipt" size={24} color={colors.primary} />
+            <MaterialIcons name="receipt" size={22} color={colors.primary} />
             <Text style={styles.cardTitle}>Order Details</Text>
           </View>
-          
-          <View style={styles.orderInfo}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Order ID:</Text>
-              <Text style={styles.infoValue}>{order.orderId}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Restaurant:</Text>
-              <Text style={styles.infoValue}>{order.restaurantName}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Order Time:</Text>
-              <Text style={styles.infoValue}>{order.orderTime}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Order Date:</Text>
-              <Text style={styles.infoValue}>{order.orderDate}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Payment:</Text>
-              <Text style={styles.infoValue}>{order.paymentMethod}</Text>
-            </View>
-          </View>
-        </Animated.View>
+          <Row label="Order ID" value={order.orderId} />
+          <Row label="Restaurant" value={order.restaurantName} />
+          <Row label="Order Time" value={order.orderTime} />
+          <Row label="Order Date" value={order.orderDate} />
+          <Row label="Payment" value={order.paymentMethod} />
+        </View>
 
-        {/* Items Summary */}
-        <Animated.View 
-          style={[
-            styles.itemsCard,
-            { 
-              opacity: cardAnimations[1],
-              transform: [{ translateY: slideAnim }] 
-            }
-          ]}
-        >
+        {/* Items */}
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <MaterialIcons name="restaurant-menu" size={24} color={colors.primary} />
-            <Text style={styles.cardTitle}>Items Ordered</Text>
+            <MaterialIcons name="restaurant-menu" size={22} color={colors.primary} />
+            <Text style={styles.cardTitle}>Items</Text>
           </View>
-          
-          {order.items.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
+          {order.items.map((it, idx) => (
+            <View key={idx} style={styles.itemRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{it.name}</Text>
+                <Text style={styles.itemMeta}>Qty: {it.quantity}</Text>
               </View>
-              <Text style={styles.itemPrice}>£{item.price.toFixed(2)}</Text>
+              <Text style={styles.itemPrice}>£{it.price.toFixed(2)}</Text>
             </View>
           ))}
-          
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
+            <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalAmount}>£{order.total.toFixed(2)}</Text>
           </View>
-        </Animated.View>
+        </View>
 
-        {/* Delivery Details */}
-        <Animated.View 
-          style={[
-            styles.deliveryCard,
-            { 
-              opacity: cardAnimations[2],
-              transform: [{ translateY: slideAnim }] 
-            }
-          ]}
-        >
+        {/* Delivery */}
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="location" size={24} color={colors.primary} />
-            <Text style={styles.cardTitle}>Delivery Details</Text>
+            <Ionicons name="location" size={22} color={colors.primary} />
+            <Text style={styles.cardTitle}>Delivery</Text>
           </View>
-          
-          <View style={styles.deliveryInfo}>
-            <Text style={styles.deliveryAddress}>{order.deliveryAddress}</Text>
-            <View style={styles.deliveryTime}>
-              <Ionicons name="time-outline" size={16} color={colors.textLight} />
-              <Text style={styles.deliveryTimeText}>
-                Estimated delivery: {order.estimatedDelivery}
-              </Text>
-            </View>
+          <Text style={styles.address}>{order.deliveryAddress}</Text>
+          <View style={styles.inline}>
+            <Ionicons name="time-outline" size={16} color={colors.lightMode.textLight} />
+            <Text style={styles.inlineText}>
+              {delivered ? 'Delivered' : `ETA: ${order.estimatedDelivery}`}
+            </Text>
           </View>
-        </Animated.View>
+        </View>
 
-        {/* Next Steps */}
-        <Animated.View 
-          style={[
-            styles.nextStepsCard,
-            { 
-              opacity: cardAnimations[3],
-              transform: [{ translateY: slideAnim }] 
-            }
-          ]}
-        >
+        {/* Info */}
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <MaterialIcons name="info" size={24} color={colors.primary} />
-            <Text style={styles.cardTitle}>What's Next?</Text>
+            <MaterialIcons name="info" size={22} color={colors.primary} />
+            <Text style={styles.cardTitle}>Status</Text>
           </View>
-          
-          <View style={styles.stepsList}>
-            <View style={styles.stepItem}>
-              <View style={styles.stepIcon}>
-                <Text style={styles.stepNumber}>1</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Order Confirmed</Text>
-                <Text style={styles.stepDescription}>
-                  Your order has been received and confirmed
-                </Text>
-              </View>
-            </View>
-            
-            <View style={styles.stepItem}>
-              <View style={styles.stepIcon}>
-                <Text style={styles.stepNumber}>2</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Preparing</Text>
-                <Text style={styles.stepDescription}>
-                  Restaurant is preparing your delicious food
-                </Text>
-              </View>
-            </View>
-            
-            <View style={styles.stepItem}>
-              <View style={styles.stepIcon}>
-                <Text style={styles.stepNumber}>3</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>On the Way</Text>
-                <Text style={styles.stepDescription}>
-                  Your order is being delivered to you
-                </Text>
-              </View>
-            </View>
-            
-            <View style={styles.stepItem}>
-              <View style={styles.stepIcon}>
-                <Text style={styles.stepNumber}>4</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Delivered</Text>
-                <Text style={styles.stepDescription}>
-                  Enjoy your meal!
-                </Text>
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Support Info */}
-        <Animated.View 
-          style={[
-            styles.supportCard,
-            { 
-              opacity: cardAnimations[4],
-              transform: [{ translateY: slideAnim }] 
-            }
-          ]}
-        >
-          <View style={styles.cardHeader}>
-            <Ionicons name="help-circle" size={24} color={colors.primary} />
-            <Text style={styles.cardTitle}>Need Help?</Text>
-          </View>
-          
-          <Text style={styles.supportText}>
-            If you have any questions about your order, our customer support team is here to help.
-          </Text>
-          
-          <TouchableOpacity style={styles.supportButton} onPress={handleSupportPress}>
-            <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
-            <Text style={styles.supportButtonText}>Contact Support</Text>
-          </TouchableOpacity>
-        </Animated.View>
+          <Text style={styles.statusTitle}>{currentStage.title}</Text>
+          <Text style={styles.statusDesc}>{currentStage.desc}</Text>
+          {!delivered && <Text style={styles.timerText}>⏱ {format(secondsLeft)} remaining</Text>}
+        </View>
       </ScrollView>
 
-      {/* Bottom Action Buttons */}
-      <Animated.View 
-        style={[
-          styles.bottomActions,
-          { 
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }] 
-          }
-        ]}
-      >
-        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
-          <TouchableOpacity style={styles.trackButton} onPress={handleTrackOrder}>
-            <Ionicons name="location-outline" size={20} color={colors.textWhite} />
-            <Text style={styles.trackButtonText}>Track Order</Text>
-          </TouchableOpacity>
-        </Animated.View>
-        
-        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
-          <TouchableOpacity style={styles.homeButton} onPress={handleBackToHome}>
-            <Ionicons name="home-outline" size={20} color={colors.primary} />
-            <Text style={styles.homeButtonText}>Back to Home</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </Animated.View>
+      {/* Bottom actions */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={handleTrackOrder}>
+          <Ionicons name="navigate-outline" size={18} color={colors.lightMode.textWhite} />
+          <Text style={styles.primaryBtnText}>Track Order</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={handleBackToHome}>
+          <Ionicons name="home-outline" size={18} color={colors.primary} />
+          <Text style={styles.secondaryBtnText}>Back to Home</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.lightMode.background,
-    paddingTop: 50,
-  },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  
-  // Success Header
-  successHeader: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-  successIconContainer: {
-    marginBottom: 20,
-  },
-  successTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.lightMode.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  successSubtitle: {
-    fontSize: 16,
-    color: colors.lightMode.textLight,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  
-  // Cards - No borders or shadows, using spacing for separation
-  orderCard: {
-    backgroundColor: colors.lightMode.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  itemsCard: {
-    backgroundColor: colors.lightMode.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  deliveryCard: {
-    backgroundColor: colors.lightMode.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  nextStepsCard: {
-    backgroundColor: colors.lightMode.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  supportCard: {
-    backgroundColor: colors.lightMode.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  
-  // Card Headers
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.lightMode.text,
-    marginLeft: 12,
-  },
-  
-  // Order Info
-  orderInfo: {
-    gap: 12,
-  },
-  infoRow: {
+function Row({ label, value }) {
+  return (
+    <View style={rowStyles.row}>
+      <Text style={rowStyles.label}>{label}</Text>
+      <Text style={rowStyles.value}>{value}</Text>
+    </View>
+  );
+}
+
+const rowStyles = StyleSheet.create({
+  row: {
+    paddingVertical: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  infoLabel: {
-    fontSize: 14,
-    color: colors.lightMode.text,
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: 14,
-    color: colors.lightMode.text,
-    fontWeight: '600',
-  },
-  
-  // Items - Using background color separation instead of borders
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginVertical: 4,
-    backgroundColor: colors.lightMode.background,
-    borderRadius: 8,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.lightMode.text,
-    marginBottom: 4,
-  },
-  itemQuantity: {
-    fontSize: 14,
-    color: colors.lightMode.textLight,
-  },
-  itemPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.lightMode.text,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 20,
-    backgroundColor: colors.primary + '15',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.lightMode.text,
-  },
-  totalAmount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  
-  // Delivery Info
-  deliveryInfo: {
-    gap: 12,
-  },
-  deliveryAddress: {
-    fontSize: 16,
-    color: colors.lightMode.text,
-    lineHeight: 22,
-    backgroundColor: colors.lightMode.background,
-    padding: 16,
-    borderRadius: 8,
-  },
-  deliveryTime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.lightMode.background,
-    padding: 12,
-    borderRadius: 8,
-  },
-  deliveryTimeText: {
-    fontSize: 14,
-    color: colors.lightMode.textLight,
-    marginLeft: 8,
-  },
-  
-  // Next Steps
-  stepsList: {
-    gap: 16,
-  },
-  stepItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.lightMode.background,
-    padding: 16,
-    borderRadius: 12,
-  },
-  stepIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  stepNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.lightMode.textWhite,
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.lightMode.text,
-    marginBottom: 4,
-  },
-  stepDescription: {
-    fontSize: 14,
-    color: colors.lightMode.textLight,
-    lineHeight: 20,
-  },
-  
-  // Support
-  supportText: {
-    fontSize: 14,
-    color: colors.lightMode.textLight,
-    lineHeight: 20,
-    marginBottom: 16,
-    backgroundColor: colors.lightMode.background,
-    padding: 16,
-    borderRadius: 8,
-  },
-  supportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: colors.primary + '15',
-    borderRadius: 8,
-  },
-  supportButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 8,
-  },
-  
-  // Bottom Actions - No border, using background separation
-  bottomActions: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    backgroundColor: colors.lightMode.surface,
-    marginTop: 8,
-    gap: 12,
-  },
-  trackButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  trackButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.lightMode.textWhite,
-    marginLeft: 8,
-  },
-  homeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.lightMode.background,
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  homeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 8,
-  },
+  label: { fontSize: 14, color: colors.lightMode.text, fontWeight: '500' },
+  value: { fontSize: 14, color: colors.lightMode.text, fontWeight: '600' },
 });
 
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.lightMode.background },
+  scrollView: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
+
+  headerWrap: { alignItems: 'center', paddingVertical: 28, paddingHorizontal: 16 },
+  badge: {
+    width: 84, height: 84, borderRadius: 42,
+    backgroundColor: colors.success + '10',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+  },
+  titleText: { fontSize: 22, fontWeight: '800', color: colors.lightMode.text, textAlign: 'center' },
+  subText: { marginTop: 6, fontSize: 14, color: colors.lightMode.textLight, textAlign: 'center' },
+
+  stagePill: {
+    marginTop: 14, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.lightMode.surface, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 18, borderWidth: 1, borderColor: colors.lightMode.background,
+  },
+  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
+  stagePillText: { fontSize: 13, fontWeight: '700', color: colors.lightMode.text },
+
+  progressCard: {
+    backgroundColor: colors.lightMode.surface, borderRadius: 16, padding: 16, marginBottom: 16,
+  },
+  progressBar: {
+    height: 10, borderRadius: 6, overflow: 'hidden', backgroundColor: colors.lightMode.background,
+  },
+  progressFill: { height: '100%', backgroundColor: colors.primary },
+  progressLabel: { marginTop: 8, textAlign: 'center', fontSize: 12, fontWeight: '700', color: colors.primary },
+
+  stagesRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
+  stageChip: { flex: 1, alignItems: 'center' },
+  stageIconCircle: {
+    width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+  },
+  stageNumber: { fontSize: 12, fontWeight: '800', color: colors.lightMode.textWhite },
+  stageChipText: { fontSize: 11, marginTop: 6, color: colors.lightMode.textLight, textAlign: 'center' },
+
+  card: { backgroundColor: colors.lightMode.surface, borderRadius: 16, padding: 16, marginBottom: 16 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  cardTitle: { marginLeft: 8, fontSize: 16, fontWeight: '800', color: colors.lightMode.text },
+
+  itemRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12,
+    backgroundColor: colors.lightMode.background, borderRadius: 10, marginBottom: 8,
+  },
+  itemName: { fontSize: 15, fontWeight: '700', color: colors.lightMode.text },
+  itemMeta: { fontSize: 12, color: colors.lightMode.textLight, marginTop: 2 },
+  itemPrice: { fontSize: 15, fontWeight: '800', color: colors.lightMode.text },
+
+  totalRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: 10, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lightMode.background,
+  },
+  totalLabel: { fontSize: 16, fontWeight: '800', color: colors.lightMode.text },
+  totalAmount: { fontSize: 18, fontWeight: '900', color: colors.primary },
+
+  address: {
+    fontSize: 14, color: colors.lightMode.text, lineHeight: 20,
+    backgroundColor: colors.lightMode.background, padding: 12, borderRadius: 10, marginBottom: 10,
+  },
+  inline: { flexDirection: 'row', alignItems: 'center' },
+  inlineText: { marginLeft: 6, color: colors.lightMode.textLight, fontSize: 13 },
+
+  statusTitle: { fontSize: 16, fontWeight: '800', color: colors.lightMode.text, marginBottom: 4 },
+  statusDesc: { fontSize: 13, color: colors.lightMode.textLight, lineHeight: 20, marginBottom: 6 },
+  timerText: { fontSize: 14, fontWeight: '800', color: colors.primary },
+
+  bottomBar: {
+    flexDirection: 'row', gap: 12, padding: 16, backgroundColor: colors.lightMode.surface,
+  },
+  primaryBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.primary, paddingVertical: 14, borderRadius: 12,
+  },
+  primaryBtnText: { marginLeft: 8, color: colors.lightMode.textWhite, fontSize: 15, fontWeight: '800' },
+  secondaryBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.lightMode.background, paddingVertical: 14, borderRadius: 12,
+  },
+  secondaryBtnText: { marginLeft: 8, color: colors.primary, fontSize: 15, fontWeight: '800' },
+});

@@ -10,309 +10,261 @@ import {
   Platform,
   Alert,
   Image,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
-import auth from "@react-native-firebase/auth";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../../context/AuthContext";
 import { colors } from "../../constants/colors";
 
 export default function SignUp() {
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [confirm, setConfirm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // 👈 eye toggle
   const navigation = useNavigation();
+  const route = useRoute();
+  const insets = useSafeAreaInsets();
+  const { signUp } = useAuth();
 
-  const validateEmail = (email) => {
-    const emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-    return emailPattern.test(email);
-  };
+  const next = route?.params?.next;
+  const nextParams = route?.params?.nextParams;
+
+  const validateEmail = (val) =>
+    /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(val);
 
   const signUpWithEmail = async () => {
     if (!validateEmail(email)) {
       Alert.alert("Invalid Email", "Please enter a valid email address.");
       return;
     }
-
-    if (password !== confirmPassword) {
-      Alert.alert("Password Mismatch", "Passwords do not match.");
+    if (!username?.trim() || !phone?.trim() || !password) {
+      Alert.alert("Missing Fields", "Username, phone and password are required.");
       return;
     }
 
     try {
-      await auth().createUserWithEmailAndPassword(email.trim(), password);
-      const user = auth().currentUser;
-      if (user) {
-        await user.sendEmailVerification();
-        setConfirm(true);
-      }
-      Alert.alert("Verification", "Verification email sent, please check your inbox.");
+      await signUp({
+        username: username.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        password,
+      });
+      // OTP sent; go to Verify OTP screen (preserve next)
+      navigation.navigate("VerifyOtp", { email: email.trim(), next, nextParams });
     } catch (error) {
-      console.log("Error in signing up: ", error.message);
-      Alert.alert("Sign Up Error", error.message);
+      console.log("Error in signing up: ", error?.message);
+      Alert.alert("Sign Up Error", error?.response?.data?.msg || error.message);
     }
   };
 
-  const verifyEmail = async () => {
-    const user = auth().currentUser;
-    if (user) {
-      await user.reload();
-      if (user.emailVerified) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }],
-        });
-      } else {
-        Alert.alert("Email Not Verified", "Please check your inbox for the verification email.");
-      }
-    }
-  };
+  const keyboardOffset = Platform.select({
+    ios: insets.top + 16,
+    android: 0,
+    default: 0,
+  });
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.primary }}>
       <LinearGradient colors={[colors.primary, colors.secondary]} style={{ flex: 1 }}>
         <StatusBar barStyle="light-content" />
-        <SafeAreaView style={{ flex: 1, paddingTop: 50 }}>
+        <SafeAreaView style={{ flex: 1 }}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={keyboardOffset}
           >
-            <View style={{ flex: 1, paddingHorizontal: 32, justifyContent: "center" }}>
-              {/* App Logo/Title */}
-              <View style={{ alignItems: "center", marginBottom: 48 }}>
-                <View style={{
-                  width: 120,
-                  height: 120,
-                  borderRadius: 60,
-                  backgroundColor: '#FFFFFF',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 16,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 16,
-                  elevation: 12,
-                }}>
-                  <Image
-                    source={require("../../../assets/bg-remove-logo.png")}
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  paddingHorizontal: 32,
+                  paddingTop: 40,
+                  paddingBottom: insets.bottom + 24,
+                  justifyContent: "center",
+                }}
+              >
+                <View style={{ alignItems: "center", marginBottom: 48 }}>
+                  <View
                     style={{
                       width: 120,
                       height: 120,
-                      resizeMode: "contain",
+                      borderRadius: 60,
+                      backgroundColor: "#FFFFFF",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 16,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 8 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 16,
+                      elevation: 12,
                     }}
-                  />
-                </View>
-                <Text style={{ 
-                  fontSize: 16, 
-                  color: colors.textWhite, 
-                  opacity: 0.9,
-                  textAlign: "center"
-                }}>
-                  Join the food revolution
-                </Text>
-              </View>
-
-              {!confirm ? (
-                <>
-                  {/* Sign Up Form */}
-                  <View style={{ marginBottom: 32 }}>
-                    <TextInput
-                      style={{
-                        height: 56,
-                        borderRadius: 16,
-                        backgroundColor: "#fff",  // White background for the input
-                        paddingHorizontal: 20,
-                        fontSize: 16,
-                        color: colors.text,
-                        borderWidth: 1,
-                        borderColor: "#ccc",  // Light border color
-                      }}
-                      placeholder="Enter your email"
-                      placeholderTextColor="#999"  // Light grey placeholder color
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      value={email}
-                      onChangeText={setEmail}
-                    />
-                    <View style={{ height: 20 }} />
-                    <TextInput
-                      style={{
-                        height: 56,
-                        borderRadius: 16,
-                        backgroundColor: "#fff",  // White background for the input
-                        paddingHorizontal: 20,
-                        fontSize: 16,
-                        color: "#000",  
-                        borderWidth: 1,
-                        borderColor: "#ccc",  // Light border color
-                      }}
-                      placeholder="Enter your password"
-                      placeholderTextColor="#999"  // Light grey placeholder color
-                      secureTextEntry
-                      value={password}
-                      onChangeText={setPassword}
-                    />
-                    <View style={{ height: 20 }} />
-                    <TextInput
-                      style={{
-                        height: 56,
-                        borderRadius: 16,
-                        backgroundColor: "#fff",  // White background for the input
-                        paddingHorizontal: 20,
-                        fontSize: 16,
-                        color: "#000",  
-                        borderWidth: 1,
-                        borderColor: "#ccc",  // Light border color
-                      }}
-                      placeholder="Confirm your password"
-                      placeholderTextColor="#999"  // Light grey placeholder color
-                      secureTextEntry
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
+                  >
+                    <Image
+                      source={require("../../../assets/bg-remove-logo.png")}
+                      style={{ width: 120, height: 120, resizeMode: "contain" }}
                     />
                   </View>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      color: colors.textWhite,
+                      opacity: 0.9,
+                      textAlign: "center",
+                    }}
+                  >
+                    Join the food revolution
+                  </Text>
+                </View>
 
-                  {/* Create Account Button */}
-                  <TouchableOpacity
-                    onPress={signUpWithEmail}
-                    activeOpacity={0.8}
+                <View style={{ marginBottom: 24 }}>
+                  <TextInput
                     style={{
                       height: 56,
                       borderRadius: 16,
-                      backgroundColor: "#000",  // Black background for the button
-                      alignItems: "center",
-                      justifyContent: "center",
+                      backgroundColor: "#fff",
+                      paddingHorizontal: 20,
+                      fontSize: 16,
+                      color: colors.text,
+                      borderWidth: 1,
+                      borderColor: "#ccc",
+                      marginBottom: 16,
                     }}
-                  >
-                    <Text style={{ 
-                      color: "#fff",  // White text color for the button
-                      fontSize: 18, 
-                      fontWeight: "700",
-                      letterSpacing: 0.5
-                    }}>
-                      Create Account
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  {/* Email Verification Screen */}
-                  <View style={{ alignItems: "center", marginBottom: 32 }}>
-                    <Text style={{ 
-                      textAlign: "center", 
-                      color: colors.textWhite, 
-                      fontSize: 18,
-                      opacity: 0.9, 
-                      marginBottom: 24,
-                      lineHeight: 26
-                    }}>
-                      Please check your email and verify your account to continue
-                    </Text>
-                    
-                    <TouchableOpacity
-                      onPress={verifyEmail}
-                      activeOpacity={0.8}
+                    placeholder="Username"
+                    placeholderTextColor="#999"
+                    value={username}
+                    onChangeText={setUsername}
+                    returnKeyType="next"
+                  />
+                  <TextInput
+                    style={{
+                      height: 56,
+                      borderRadius: 16,
+                      backgroundColor: "#fff",
+                      paddingHorizontal: 20,
+                      fontSize: 16,
+                      color: colors.text,
+                      borderWidth: 1,
+                      borderColor: "#ccc",
+                      marginBottom: 16,
+                    }}
+                    placeholder="Phone"
+                    placeholderTextColor="#999"
+                    keyboardType="phone-pad"
+                    value={phone}
+                    onChangeText={setPhone}
+                    returnKeyType="next"
+                  />
+                  <TextInput
+                    style={{
+                      height: 56,
+                      borderRadius: 16,
+                      backgroundColor: "#fff",
+                      paddingHorizontal: 20,
+                      fontSize: 16,
+                      color: colors.text,
+                      borderWidth: 1,
+                      borderColor: "#ccc",
+                      marginBottom: 16,
+                    }}
+                    placeholder="Email"
+                    placeholderTextColor="#999"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                    returnKeyType="next"
+                  />
+
+                  {/* Password with eye toggle */}
+                  <View style={{ position: "relative" }}>
+                    <TextInput
                       style={{
                         height: 56,
                         borderRadius: 16,
-                        backgroundColor: colors.buttonSecondary,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        paddingHorizontal: 32,
+                        backgroundColor: "#fff",
+                        paddingHorizontal: 20,
+                        fontSize: 16,
+                        color: "#000",
+                        borderWidth: 1,
+                        borderColor: "#ccc",
+                        paddingRight: 48, // space for eye
                       }}
+                      placeholder="Password"
+                      placeholderTextColor="#999"
+                      secureTextEntry={!showPassword}
+                      value={password}
+                      onChangeText={setPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={signUpWithEmail}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword((p) => !p)}
+                      style={{ position: "absolute", right: 16, top: 14 }}
+                      accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                      accessibilityRole="button"
                     >
-                      <Text style={{ 
-                        color: colors.buttonText, 
-                        fontSize: 18, 
-                        fontWeight: "700",
-                        letterSpacing: 0.5
-                      }}>
-                        Verify Email
-                      </Text>
+                      <Ionicons
+                        name={showPassword ? "eye-off" : "eye"}
+                        size={22}
+                        color="#666"
+                      />
                     </TouchableOpacity>
                   </View>
-                </>
-              )}
+                </View>
 
-              {/* Sign In Link */}
-              <View style={{ marginTop: 32, alignItems: "center" }}>
-                <Text style={{ 
-                  color: colors.textWhite, 
-                  fontSize: 16,
-                  opacity: 0.9
-                }}>
-                  Already have an account?
-                </Text>
-                <TouchableOpacity 
-                  onPress={
-                    () => navigation.reset({
-                      index: 0,
-                      routes: [{ name: 'Login' }],
-                    })
-                  }
-                  style={{ marginTop: 8 }}
+                <TouchableOpacity
+                  onPress={signUpWithEmail}
+                  activeOpacity={0.8}
+                  style={{
+                    height: 56,
+                    borderRadius: 16,
+                    backgroundColor: "#000",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <Text style={{ 
-                    color: colors.background, 
-                    fontSize: 16,
-                    fontWeight: "600",
-                    textDecorationLine: "underline" 
-                  }}>
-                    Sign In
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 18,
+                      fontWeight: "700",
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    Create Account
                   </Text>
                 </TouchableOpacity>
-              </View>
-            </View>
 
-            {/* Terms and Conditions */}
-            <View style={{ paddingBottom: 32, paddingHorizontal: 32 }}>
-              <Text style={{ 
-                textAlign: "center", 
-                color: colors.textWhite,
-                opacity: 0.8,
-                fontSize: 14
-              }}>
-                By continuing, you agree to our
-              </Text>
-              <View style={{ 
-                marginTop: 8, 
-                flexDirection: "row", 
-                justifyContent: "center",
-                flexWrap: "wrap"
-              }}>
-                <TouchableOpacity style={{ marginHorizontal: 8, marginVertical: 4 }}>
-                  <Text style={{ 
-                    color: colors.background, 
-                    textDecorationLine: "underline",
-                    fontSize: 14,
-                    fontWeight: "500"
-                  }}>
-                    Terms of Service
+                <View style={{ marginTop: 24, alignItems: "center" }}>
+                  <Text style={{ color: colors.textWhite, fontSize: 16, opacity: 0.9 }}>
+                    Already have an account?
                   </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={{ marginHorizontal: 8, marginVertical: 4 }}>
-                  <Text style={{ 
-                    color: colors.background, 
-                    textDecorationLine: "underline",
-                    fontSize: 14,
-                    fontWeight: "500"
-                  }}>
-                    Privacy Policy
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={{ marginHorizontal: 8, marginVertical: 4 }}>
-                  <Text style={{ 
-                    color: colors.background, 
-                    textDecorationLine: "underline",
-                    fontSize: 14,
-                    fontWeight: "500"
-                  }}>
-                    Content Policy
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("Login", { next, nextParams })}
+                    style={{ marginTop: 8 }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.background,
+                        fontSize: 16,
+                        fontWeight: "600",
+                        textDecorationLine: "underline",
+                      }}
+                    >
+                      Sign In
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </LinearGradient>

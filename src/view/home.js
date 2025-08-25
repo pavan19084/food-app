@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
 import { LocationService } from '../utils/locationService';
 
 const CATEGORY_ITEMS = [
@@ -121,8 +122,10 @@ const RestaurantCard = ({ item }) => {
 
 export default function Home() {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const initials = (user?.name || user?.username || 'U').trim().charAt(0).toUpperCase()
 
   useEffect(() => {
     loadLocation();
@@ -225,7 +228,7 @@ export default function Home() {
           activeOpacity={0.8}
           onPress={() => navigation.navigate('Profile')}
         >
-          <Text style={styles.profileInitials}>U</Text>
+          <Text style={styles.profileInitials}>{initials}</Text>
         </TouchableOpacity>
       </View>
 
