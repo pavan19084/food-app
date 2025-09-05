@@ -8,23 +8,21 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/bg-remove-logo.png",
+      "image": "./assets/splash-icon-dark.png",
       "resizeMode": "contain",
       "backgroundColor": "#FF6B35"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pavan1984.foodapp",
-      "googleServicesFile": "./GoogleService-Info.plist",
       "icon": "./assets/playstore.png"
     },
     "android": {
-      "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize",
-      "icon": "./assets/playstore.png",
+      "icon": "./assets/adaptive-icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/playstore.png",
-        "backgroundColor": "#FF6B35"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.pavan1984.foodapp"
@@ -33,10 +31,6 @@
       "bundler": "metro",
       "favicon": "./assets/playstore.png"
     },
-    "plugins": [
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth"
-    ],
     "extra": {
       "eas": {
         "projectId": "3fe416bc-961c-4279-9b1d-5bada22e9d53"

@@ -30,36 +30,137 @@ const CATEGORY_ITEMS = [
 const RESTAURANTS = [
   {
     id: 'r1',
-    cover: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900&h=500&fit=crop&auto=format',
+    cover: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&h=500&fit=crop&auto=format',
     title: 'Eat Healthy',
     subtitle: 'Healthy food',
     rating: '4.3',
-    priceForTwo: '40 uro ',
+    priceForTwo: '40 euro',
     badges: ['Healthy', 'DELIVERY'],
     envNote: 'Always eat healthy, be healthy',
-    onTap: 'Restaurant',  // This is the key for navigation
+    onTap: 'Restaurant',
+    category: 'healthy',
   },
   {
     id: 'r2',
-    cover: 'https://animationvisarts.com/wp-content/uploads/2023/12/image-19.png',
+    cover: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=900&h=500&fit=crop&auto=format',
     title: 'Amul',
     subtitle: 'Desserts, Ice Cream, Beverages',
     rating: '4.2',
-    priceForTwo: '₹15 uro',
+    priceForTwo: '15 euro',
     badges: ['Healthy', 'DELIVERY'],
     envNote: 'Amul, taste of India',
-    // No onTap for Amul
+    onTap: 'Restaurant',
+    category: 'cake',
+  },
+  {
+    id: 'r3',
+    cover: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=900&h=500&fit=crop&auto=format',
+    title: 'Pizza Palace',
+    subtitle: 'Italian, Pizza, Pasta',
+    rating: '4.5',
+    priceForTwo: '25 euro',
+    badges: ['Popular', 'DELIVERY'],
+    envNote: 'Authentic Italian pizza made fresh daily',
+    onTap: 'Restaurant',
+    category: 'pizza',
+  },
+  {
+    id: 'r4',
+    cover: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=900&h=500&fit=crop&auto=format',
+    title: 'Burger House',
+    subtitle: 'American, Burgers, Fast Food',
+    rating: '4.1',
+    priceForTwo: '20 euro',
+    badges: ['Popular', 'DELIVERY'],
+    envNote: 'Juicy burgers with fresh ingredients',
+    onTap: 'Restaurant',
+    category: 'burger',
+  },
+  {
+    id: 'r5',
+    cover: 'https://images.unsplash.com/photo-1563379091339-03246963d6a9?w=900&h=500&fit=crop&auto=format',
+    title: 'Biryani Corner',
+    subtitle: 'Indian, Biryani, Rice',
+    rating: '4.4',
+    priceForTwo: '18 euro',
+    badges: ['Popular', 'DELIVERY'],
+    envNote: 'Authentic Hyderabadi biryani',
+    onTap: 'Restaurant',
+    category: 'biryani',
+  },
+  {
+    id: 'r6',
+    cover: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=900&h=500&fit=crop&auto=format',
+    title: 'Chicken Delight',
+    subtitle: 'Chicken, Grill, BBQ',
+    rating: '4.0',
+    priceForTwo: '22 euro',
+    badges: ['Popular', 'DELIVERY'],
+    envNote: 'Grilled chicken with special marinades',
+    onTap: 'Restaurant',
+    category: 'chicken',
+  },
+  {
+    id: 'r7',
+    cover: 'https://images.unsplash.com/photo-1563379091339-03246963d6a9?w=900&h=500&fit=crop&auto=format',
+    title: 'Haleem House',
+    subtitle: 'Middle Eastern, Haleem, Traditional',
+    rating: '4.6',
+    priceForTwo: '16 euro',
+    badges: ['Popular', 'DELIVERY'],
+    envNote: 'Traditional haleem with authentic spices',
+    onTap: 'Restaurant',
+    category: 'haleem',
+  },
+  {
+    id: 'r8',
+    cover: 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=900&h=500&fit=crop&auto=format',
+    title: 'Shawarma Express',
+    subtitle: 'Middle Eastern, Shawarma, Wraps',
+    rating: '4.3',
+    priceForTwo: '12 euro',
+    badges: ['Popular', 'DELIVERY'],
+    envNote: 'Fresh shawarma wraps with homemade sauces',
+    onTap: 'Restaurant',
+    category: 'shawarma',
+  },
+  {
+    id: 'r9',
+    cover: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&h=500&fit=crop&auto=format',
+    title: 'Green Garden',
+    subtitle: 'Vegetarian, Healthy, Organic',
+    rating: '4.7',
+    priceForTwo: '28 euro',
+    badges: ['Healthy', 'DELIVERY'],
+    envNote: '100% organic vegetarian cuisine',
+    onTap: 'Restaurant',
+    category: 'healthy',
+  },
+  {
+    id: 'r10',
+    cover: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=900&h=500&fit=crop&auto=format',
+    title: 'Sweet Treats',
+    subtitle: 'Desserts, Cakes, Pastries',
+    rating: '4.2',
+    priceForTwo: '14 euro',
+    badges: ['Popular', 'DELIVERY'],
+    envNote: 'Homemade cakes and pastries',
+    onTap: 'Restaurant',
+    category: 'cake',
   },
 ];
 
-const FilterChip = ({ label, filled }) => (
-  <TouchableOpacity style={[
-    styles.chip, 
-    { 
-      backgroundColor: filled ? '#FF6B6B' : '#F0F0F0',
-      borderColor: filled ? '#FF6B6B' : '#E0E0E0'
-    }
-  ]}>
+const FilterChip = ({ label, filled, onPress }) => (
+  <TouchableOpacity 
+    style={[
+      styles.chip, 
+      { 
+        backgroundColor: filled ? '#FF6B6B' : '#F0F0F0',
+        borderColor: filled ? '#FF6B6B' : '#E0E0E0'
+      }
+    ]}
+    onPress={onPress}
+  >
     <Text style={[
       styles.chipText, 
       { color: filled ? '#FFFFFF' : '#333' }
@@ -69,11 +170,22 @@ const FilterChip = ({ label, filled }) => (
   </TouchableOpacity>
 );
 
-const CategoryBubble = ({ item }) => (
-  <View style={styles.catItem}>
-    <Image source={{ uri: item.img }} style={styles.catImage} />
-    <Text style={styles.catLabel} numberOfLines={1}>{item.label}</Text>
-  </View>
+const CategoryBubble = ({ item, selected, onPress }) => (
+  <TouchableOpacity style={styles.catItem} onPress={onPress}>
+    <Image 
+      source={{ uri: item.img }} 
+      style={[
+        styles.catImage, 
+        { borderColor: selected ? '#FF6B6B' : '#E0E0E0' }
+      ]} 
+    />
+    <Text style={[
+      styles.catLabel, 
+      { color: selected ? '#FF6B6B' : '#666' }
+    ]} numberOfLines={1}>
+      {item.label}
+    </Text>
+  </TouchableOpacity>
 );
 
 const RestaurantCard = ({ item }) => {
@@ -81,7 +193,6 @@ const RestaurantCard = ({ item }) => {
 
   const handlePress = () => {
     if (item.onTap) {
-      // Only navigate if 'onTap' is defined (i.e., for "Eat Healthy")
       navigation.navigate(item.onTap, {
         title: item.title,
         subtitle: item.subtitle,
@@ -125,6 +236,8 @@ export default function Home() {
   const { user } = useAuth();
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedFilter, setSelectedFilter] = useState('Healthy');
   const initials = (user?.name || user?.username || 'U').trim().charAt(0).toUpperCase()
 
   useEffect(() => {
@@ -169,6 +282,37 @@ export default function Home() {
       setIsLoadingLocation(false);
     }
   };
+
+  const handleCategoryPress = (categoryId) => {
+    setSelectedCategory(selectedCategory === categoryId ? null : categoryId);
+  };
+
+  const handleFilterPress = (filter) => {
+    setSelectedFilter(selectedFilter === filter ? null : filter);
+  };
+
+  const getFilteredRestaurants = () => {
+    let filtered = RESTAURANTS;
+
+    // Filter by category
+    if (selectedCategory) {
+      filtered = filtered.filter(restaurant => restaurant.category === selectedCategory);
+    }
+
+    // Filter by filter chip
+    if (selectedFilter) {
+      if (selectedFilter === 'Healthy') {
+        filtered = filtered.filter(restaurant => restaurant.badges.includes('Healthy'));
+      } else if (selectedFilter === 'Popular') {
+        filtered = filtered.filter(restaurant => restaurant.badges.includes('Popular'));
+      }
+      // Add more filter logic as needed
+    }
+
+    return filtered;
+  };
+
+  const filteredRestaurants = getFilteredRestaurants();
 
   return (
     <View style={styles.container}>
@@ -235,23 +379,54 @@ export default function Home() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* Filter chips in one row */}
         <View style={styles.chipsRow}>
-          <FilterChip label="Healthy" filled />
-          <FilterChip label="PRO" />
-          <FilterChip label="Cuisines" />
-          <FilterChip label="Rating" />
-          <FilterChip label="Popular" />
+          <FilterChip 
+            label="Healthy" 
+            filled={selectedFilter === 'Healthy'} 
+            onPress={() => handleFilterPress('Healthy')}
+          />
+          <FilterChip 
+            label="PRO" 
+            filled={selectedFilter === 'PRO'} 
+            onPress={() => handleFilterPress('PRO')}
+          />
+          <FilterChip 
+            label="Cuisines" 
+            filled={selectedFilter === 'Cuisines'} 
+            onPress={() => handleFilterPress('Cuisines')}
+          />
+          <FilterChip 
+            label="Rating" 
+            filled={selectedFilter === 'Rating'} 
+            onPress={() => handleFilterPress('Rating')}
+          />
+          <FilterChip 
+            label="Popular" 
+            filled={selectedFilter === 'Popular'} 
+            onPress={() => handleFilterPress('Popular')}
+          />
         </View>
 
         {/* Categories */}
         <Text style={styles.h2}>Eat what makes you happy</Text>
         <View style={styles.categoriesGrid}>
-          {CATEGORY_ITEMS.map(c => <CategoryBubble key={c.id} item={c} />)}
+          {CATEGORY_ITEMS.map(c => (
+            <CategoryBubble 
+              key={c.id} 
+              item={c} 
+              selected={selectedCategory === c.id}
+              onPress={() => handleCategoryPress(c.id)}
+            />
+          ))}
         </View>
 
         {/* Restaurants */}
-        <Text style={styles.h2}>396 restaurants around you</Text>
+        <Text style={styles.h2}>
+          {filteredRestaurants.length} restaurants around you
+          {selectedCategory && ` - ${CATEGORY_ITEMS.find(c => c.id === selectedCategory)?.label}`}
+          {selectedFilter && ` - ${selectedFilter}`}
+        </Text>
         <FlatList
-          data={RESTAURANTS}
+          data={filteredRestaurants}
           keyExtractor={it => it.id}
           renderItem={({ item }) => <RestaurantCard item={item} />}
           scrollEnabled={false}

@@ -8,7 +8,7 @@ export const colors = {
   // Light Mode Colors
   lightMode: {
     background: '#FFF8F5', 
-    surface: '#FFFFFF', // White surfaces for cards
+    surface: '#FFFFFF', 
     text: '#1A202C', // Dark text for readability
     textLight: '#4A5568', // Lighter text for secondary content
     textWhite: '#FFFFFF', // Pure white text
@@ -24,8 +24,7 @@ export const colors = {
     warning: '#ED8936',
 
     // UI elements
-    border: '#E2E8F0', // Light border color for separation
-    shadow: 'rgba(0, 0, 0, 0.1)', // Shadow with light opacity
+    border: '#E2E8F0',
     overlay: 'rgba(0, 0, 0, 0.3)', // Soft overlay for modals/menus
   },
 

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
-  Image, SafeAreaView
+  Image, SafeAreaView, Modal, TextInput, Switch, Platform
 } from "react-native";
 import { colors } from "../../constants/colors";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -22,13 +22,57 @@ export default function CartScreen({ navigation, route }) {
             quantity: 1,
             isVeg: true,
             image:
-              "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=200&h=200&fit=crop&auto=format",
+              "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop&auto=format",
           },
         ]
   );
 
   const [selectedPayment, setSelectedPayment] = useState("card");
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+  // ---------- Zomato-like Notes ----------
+  const QUICK_NOTE_TAGS = [
+    "No onions",
+    "Less spicy",
+    "Extra spicy",
+    "Extra cheese",
+    "Extra sauce",
+    "Cutlery",
+    "Napkins",
+    "No garlic",
+  ];
+
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [noteTags, setNoteTags] = useState([]);
+  const [customNote, setCustomNote] = useState("");
+  const [dontSendNote, setDontSendNote] = useState(false);
+
+  const toggleTag = (tag) => {
+    setNoteTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const clearNotes = () => {
+    setNoteTags([]);
+    setCustomNote("");
+  };
+
+  const saveNotes = () => {
+    // Just close; values already live in state
+    setNoteModalVisible(false);
+  };
+
+  const hasAnyNote = (!dontSendNote) && (noteTags.length > 0 || customNote.trim().length > 0);
+
+  const notePreview = () => {
+    if (dontSendNote) return "Don't send";
+    if (!hasAnyNote) return "Add a note for the restaurant";
+    const first = noteTags[0] || customNote.trim();
+    const count =
+      (noteTags.length + (customNote.trim().length ? 1 : 0));
+    return count > 1 ? `${count} notes • "${first}"` : `"${first}"`;
+  };
+  // --------------------------------------
 
   const suggestions = [
     {
@@ -85,12 +129,48 @@ export default function CartScreen({ navigation, route }) {
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const discount = appliedCoupon ? Math.min(subtotal * 0.3, 3.0) : 0;
   const deliveryFee = 1.5;
-  const taxes = (subtotal - discount) * 0.05;
-  const total = subtotal - discount + deliveryFee + taxes;
+  const taxes = subtotal * 0.05;
+  const total = subtotal + deliveryFee + taxes;
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  // If cart is empty, show empty cart state
+  if (totalItems === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        
+        {/* Restaurant Header */}
+        <View style={[styles.restaurantInfo, { elevation: 2, shadowOpacity: 0.06 }]}>
+          <View style={styles.restaurantHeader}>
+            <Text style={styles.restaurantName}>{restaurantName}</Text>
+            <Text style={styles.restaurantSubtitle}>Your cart is empty</Text>
+          </View>
+          <TouchableOpacity style={styles.shareButton}>
+            <Ionicons name="share-outline" size={20} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Empty Cart Content */}
+        <View style={styles.emptyCartContainer}>
+          <View style={styles.emptyCartContent}>
+            <Ionicons name="cart-outline" size={80} color={colors.textLight} />
+            <Text style={styles.emptyCartTitle}>Your cart is empty</Text>
+            <Text style={styles.emptyCartSubtitle}>
+              Looks like you haven't added anything to your cart yet
+            </Text>
+            <TouchableOpacity 
+              style={styles.backToRestaurantBtn}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.backToRestaurantText}>Back to Restaurant</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const renderVegIcon = (isVeg) => (
     <View
@@ -109,6 +189,13 @@ export default function CartScreen({ navigation, route }) {
   );
 
   const handlePlaceOrder = () => {
+    const notePayload = dontSendNote
+      ? null
+      : {
+          tags: noteTags,
+          text: customNote.trim(),
+        };
+
     const orderDetails = {
       orderId:
         "ORD" + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -126,6 +213,7 @@ export default function CartScreen({ navigation, route }) {
         selectedPayment === "card" ? "Card Payment" : "Cash on Delivery",
       orderTime: new Date().toLocaleTimeString(),
       orderDate: new Date().toLocaleDateString(),
+      specialInstructions: notePayload, // <-- included like Zomato
     };
 
     // Gate only here: if not logged in, open Login modal with redirect
@@ -167,16 +255,6 @@ export default function CartScreen({ navigation, route }) {
           Selected address is 825 m away from your location
         </Text>
       </View>
-
-      {/* Savings Banner */}
-      {discount > 0 && (
-        <View style={styles.savingsBanner}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-          <Text style={styles.savingsText}>
-            You saved £{discount.toFixed(2)} on this order
-          </Text>
-        </View>
-      )}
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Cart Items */}
@@ -223,66 +301,37 @@ export default function CartScreen({ navigation, route }) {
             <Text style={styles.addMoreText}>Add more items</Text>
           </TouchableOpacity>
 
-          {/* Add Note */}
-          <TouchableOpacity style={styles.noteSection}>
-            <Ionicons name="document-text-outline" size={20} color={colors.textLight} />
-            <Text style={styles.noteText}>Add a note for the restaurant</Text>
-            <Text style={styles.dontSendText}>Don't send</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Add Note (Zomato-like) */}
+          <TouchableOpacity
+  style={styles.noteSection}
+  onPress={() => setNoteModalVisible(true)}
+>
+  <Ionicons name="document-text-outline" size={20} color={colors.textLight} />
+  <Text
+    style={[
+      styles.noteText,
+      !hasAnyNote && !dontSendNote && { color: colors.textLight }, // faded placeholder
+      hasAnyNote && { color: colors.text },                       // dark for real notes
+      dontSendNote && { color: colors.error || "red" },           // red if "Don't send"
+    ]}
+    numberOfLines={1}
+  >
+    {notePreview()}
+  </Text>
+  <Text
+    style={[
+      styles.dontSendText,
+      dontSendNote && { color: colors.primary, fontWeight: "600" },
+    ]}
+  >
+    {dontSendNote ? "Don't send" : "Edit"}
+  </Text>
+</TouchableOpacity>
 
-        {/* Complete Your Meal */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialIcons name="restaurant" size={20} color={colors.text} />
-            <Text style={styles.sectionTitle}>Complete your meal with</Text>
-          </View>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggestionsScroll}>
-            {suggestions.map((s) => (
-              <View key={s.id} style={styles.suggestionCard}>
-                <View style={styles.suggestionHeader}>{renderVegIcon(s.isVeg)}</View>
-                <Image source={{ uri: s.image }} style={styles.suggestionImage} />
-                <Text style={styles.suggestionName} numberOfLines={2}>
-                  {s.name}
-                </Text>
-                <View style={styles.suggestionPricing}>
-                  <Text style={styles.suggestionPrice}>£{s.price.toFixed(2)}</Text>
-                  <Text style={styles.suggestionOriginalPrice}>£{s.originalPrice.toFixed(2)}</Text>
-                </View>
-                <Text style={styles.customizable}>customizable</Text>
-                <TouchableOpacity
-                  style={styles.addBtn}
-                  onPress={() => addSuggestionToCart(s)}
-                >
-                  <Text style={styles.addBtnText}>ADD</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Coupons Section */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.couponHeader}>
-            <View style={styles.couponLeft}>
-              <View style={styles.couponIcon}>
-                <Text style={styles.couponIconText}>%</Text>
-              </View>
-              <Text style={styles.couponTitle}>Items starting @ £2.50 only applied!</Text>
-            </View>
-            <Text style={styles.couponDiscount}>- £{discount.toFixed(2)}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.viewCoupons}>
-            <Ionicons name="pricetag-outline" size={20} color={colors.text} />
-            <Text style={styles.viewCouponsText}>View all coupons</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
-          </TouchableOpacity>
         </View>
 
         {/* Payment Method */}
-        <View style={styles.section}>
+        <View className="payment" style={styles.section}>
           <View style={styles.paymentHeader}>
             <Ionicons name="card-outline" size={20} color={colors.text} />
             <Text style={styles.paymentHeaderText}>Payment Method</Text>
@@ -335,12 +384,6 @@ export default function CartScreen({ navigation, route }) {
             <Text style={styles.billLabel}>Subtotal</Text>
             <Text style={styles.billValue}>£{subtotal.toFixed(2)}</Text>
           </View>
-          {discount > 0 && (
-            <View style={styles.billRow}>
-              <Text style={[styles.billLabel, { color: colors.success }]}>Discount</Text>
-              <Text style={[styles.billValue, { color: colors.success }]}>-£{discount.toFixed(2)}</Text>
-            </View>
-          )}
           <View style={styles.billRow}>
             <Text style={styles.billLabel}>Delivery Fee</Text>
             <Text style={styles.billValue}>£{deliveryFee.toFixed(2)}</Text>
@@ -366,6 +409,79 @@ export default function CartScreen({ navigation, route }) {
           <Text style={[styles.placeOrderText, { color: "#fff" }]}>Place Order ▶</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Notes Modal */}
+      <Modal
+        visible={noteModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setNoteModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalGrabber} />
+
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Special instructions</Text>
+              <TouchableOpacity onPress={() => setNoteModalVisible(false)}>
+                <Ionicons name="close" size={22} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>Quick notes</Text>
+            <View style={styles.tagsWrap}>
+              {QUICK_NOTE_TAGS.map((tag) => {
+                const active = noteTags.includes(tag);
+                return (
+                  <TouchableOpacity
+                    key={tag}
+                    style={[
+                      styles.tagChip,
+                      active && { borderColor: colors.primary, backgroundColor: "rgba(76,175,80,0.08)" },
+                    ]}
+                    onPress={() => toggleTag(tag)}
+                  >
+                    <Text style={[styles.tagText, active && { color: colors.primary, fontWeight: "600" }]}>
+                      {tag}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.modalSubtitle, { marginTop: 14 }]}>Add a note</Text>
+            <TextInput
+              style={styles.noteInput}
+              placeholder="e.g., Ring the doorbell once. Pack sauces separately."
+              placeholderTextColor={colors.textLight}
+              value={customNote}
+              onChangeText={setCustomNote}
+              maxLength={180}
+              multiline
+            />
+            <Text style={styles.charCount}>{customNote.length}/180</Text>
+
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>Don't send</Text>
+              <Switch
+                value={dontSendNote}
+                onValueChange={setDontSendNote}
+                trackColor={{ true: colors.primary, false: "#ddd" }}
+                thumbColor={Platform.OS === "android" ? "#fff" : undefined}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.clearBtn]} onPress={clearNotes}>
+                <Text style={[styles.modalBtnText, { color: colors.text }]}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={saveNotes}>
+                <Text style={[styles.modalBtnText, { color: colors.textWhite }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -396,15 +512,6 @@ const styles = StyleSheet.create({
   },
   locationText: { fontSize: 12, color: colors.textLight, marginLeft: 5 },
 
-  savingsBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#e8f5e8",
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-  },
-  savingsText: { fontSize: 12, color: colors.success, marginLeft: 5, fontWeight: "500" },
-
   section: { backgroundColor: colors.surface, marginVertical: 5, borderRadius: 8, padding: 15 },
   cartItem: {
     flexDirection: "row",
@@ -430,10 +537,18 @@ const styles = StyleSheet.create({
   addMoreBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#f0f0f0" },
   addMoreText: { fontSize: 14, color: colors.primary, marginLeft: 8, fontWeight: "500" },
 
+  // NOTE ROW
   noteSection: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#f0f0f0" },
-  noteText: { flex: 1, fontSize: 14, color: colors.text, marginLeft: 10 },
+  noteText: { 
+    flex: 1, 
+    fontSize: 14, 
+    color: colors.primary, // was colors.text
+    marginLeft: 10 
+  },
+  
   dontSendText: { fontSize: 12, color: colors.textLight },
 
+  // Payments
   sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
   sectionTitle: { fontSize: 14, fontWeight: "500", color: colors.text, marginLeft: 8 },
 
@@ -466,15 +581,6 @@ const styles = StyleSheet.create({
   customizable: { fontSize: 10, color: colors.textLight, marginBottom: 10, textAlign: "center" },
   addBtn: { backgroundColor: colors.secondary, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 4, alignItems: "center", minWidth: 60 },
   addBtnText: { fontSize: 11, fontWeight: "bold", color: colors.textWhite },
-
-  couponHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10 },
-  couponLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
-  couponIcon: { width: 24, height: 24, backgroundColor: colors.success, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
-  couponIconText: { fontSize: 14, fontWeight: "bold", color: colors.textWhite },
-  couponTitle: { fontSize: 12, color: colors.text, flex: 1 },
-  couponDiscount: { fontSize: 12, color: colors.success, fontWeight: "bold" },
-  viewCoupons: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderTopWidth: 1, borderTopColor: "#f0f0f0" },
-  viewCouponsText: { flex: 1, fontSize: 14, color: colors.text, marginLeft: 10 },
 
   paymentHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#f0f0f0" },
   paymentHeaderText: { fontSize: 14, fontWeight: "500", color: colors.text, marginLeft: 10 },
@@ -515,4 +621,131 @@ const styles = StyleSheet.create({
   orderAmount: { fontSize: 16, color: colors.textWhite, fontWeight: "bold" },
   placeOrderBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 6 },
   placeOrderText: { fontSize: 14, fontWeight: "bold" },
+
+  // Empty cart styles
+  emptyCartContainer: { 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    paddingHorizontal: 20 
+  },
+  emptyCartContent: { 
+    alignItems: "center", 
+    maxWidth: 300 
+  },
+  emptyCartTitle: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    color: colors.text, 
+    marginTop: 20, 
+    marginBottom: 10 
+  },
+  emptyCartSubtitle: { 
+    fontSize: 16, 
+    color: colors.textLight, 
+    textAlign: "center", 
+    lineHeight: 24, 
+    marginBottom: 30 
+  },
+  backToRestaurantBtn: { 
+    backgroundColor: colors.primary, 
+    paddingHorizontal: 30, 
+    paddingVertical: 12, 
+    borderRadius: 8 
+  },
+  backToRestaurantText: { 
+    color: colors.textWhite, 
+    fontSize: 16, 
+    fontWeight: "bold" 
+  },
+
+  // ------- Notes Modal styles -------
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: "#fff",       // force white modal
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    paddingBottom: 20 + (Platform.OS === "ios" ? 20 : 0),
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: -2 },
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  
+  modalGrabber: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E0E0E0",
+    alignSelf: "center",
+    marginBottom: 10,
+  },
+  modalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  modalTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
+  modalSubtitle: { fontSize: 13, fontWeight: "600", color: colors.text, marginTop: 6, marginBottom: 8 },
+
+  tagsWrap: { flexDirection: "row", flexWrap: "wrap" },
+  tagChip: {
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    marginBottom: 8,
+    backgroundColor: colors.background,
+  },
+  tagText: { fontSize: 12, color: colors.text },
+
+  noteInput: {
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    borderRadius: 10,
+    minHeight: 70,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: colors.text,
+    backgroundColor: colors.background,
+    textAlignVertical: "top",
+  },
+  charCount: { fontSize: 11, color: colors.textLight, alignSelf: "flex-end", marginTop: 4 },
+
+  toggleRow: {
+    marginTop: 8,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  toggleLabel: { fontSize: 14, color: colors.text },
+
+  modalActions: {
+    marginTop: 10,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  modalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  clearBtn: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+  },
+  saveBtn: { backgroundColor: colors.primary },
+  modalBtnText: { fontSize: 14, fontWeight: "600" },
 });
