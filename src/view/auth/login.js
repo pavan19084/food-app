@@ -18,6 +18,7 @@ import LinearGradient from "react-native-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
+import { useOrder } from "../../context/OrderContext";
 import { colors } from "../../constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -30,6 +31,7 @@ export default function Login() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
+  const { setOrderPlaced } = useOrder();
 
   // Next-step routing (e.g., go to OrderConfirmation after login)
   const next = route?.params?.next;
@@ -39,6 +41,10 @@ export default function Login() {
     try {
       await signIn({ email: email.trim(), password });
       if (next) {
+        // If we're going to OrderConfirmation, set the order in context for notification
+        if (next === "OrderConfirmation" && nextParams?.orderDetails) {
+          setOrderPlaced(nextParams.orderDetails);
+        }
         navigation.replace(next, nextParams || {});
       } else {
         navigation.reset({ index: 0, routes: [{ name: "Home" }] });

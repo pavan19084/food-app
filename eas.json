@@ -20,7 +20,12 @@
     "preview4": {
       "distribution": "internal"
     },
-    "production": {}
+    "production": {},
+    "release": {
+      "android": {
+        "buildType": "apk"
+      }
+    }
   },
   "submit": {
     "production": {}

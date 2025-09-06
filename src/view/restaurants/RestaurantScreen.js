@@ -13,6 +13,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Healthy food, South Indian',
     rating: '4.3',
     deliveryTime: '40 mins',
+    pickupTime: '15 mins',
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: true,
     menuItems: [
       { id: 1, name: "Plant Protein Bowl", price: 8.99, desc: "[Veg] Spring mix, plant based, organic...", image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&h=500&fit=crop&auto=format", isVeg: true },
       { id: 2, name: "Spring Veg Platter", price: 6.49, desc: "[Veg] Fresh veggies with dip...", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500&h=500&fit=crop&auto=format", isVeg: true },
@@ -32,6 +37,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Italian, Pizza, Pasta',
     rating: '4.5',
     deliveryTime: '35 mins',
+    pickupTime: '20 mins',
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: false,
     menuItems: [
       { id: 1, name: "Margherita Pizza", price: 12.99, desc: "[Veg] Classic tomato sauce with mozzarella", image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=500&h=500&fit=crop&auto=format", isVeg: true },
       { id: 2, name: "Pepperoni Pizza", price: 14.99, desc: "[Non-Veg] Spicy pepperoni with cheese", image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&h=500&fit=crop&auto=format", isVeg: false },
@@ -51,6 +61,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'American, Burgers, Fast Food',
     rating: '4.1',
     deliveryTime: '25 mins',
+    pickupTime: '10 mins',
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: true,
     menuItems: [
       { id: 1, name: "Classic Cheeseburger", price: 8.99, desc: "[Non-Veg] Beef patty with cheese and veggies", image: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=500&h=500&fit=crop&auto=format", isVeg: false },
       { id: 2, name: "Chicken Burger", price: 7.99, desc: "[Non-Veg] Grilled chicken with lettuce", image: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=500&h=500&fit=crop&auto=format", isVeg: false },
@@ -70,6 +85,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Indian, Biryani, Rice',
     rating: '4.4',
     deliveryTime: '45 mins',
+    pickupTime: '25 mins',
+    deliveryAvailable: true,
+    pickupAvailable: false,
+    cardPaymentAvailable: false,
+    cashOnDeliveryAvailable: true,
     menuItems: [
       { id: 1, name: "Chicken Biryani", price: 10.99, desc: "[Non-Veg] Hyderabadi dum biryani with raita", image: "https://images.unsplash.com/photo-1563379091339-03246963d6a9?w=500&h=500&fit=crop&auto=format", isVeg: false },
       { id: 2, name: "Veg Biryani", price: 8.99, desc: "[Veg] Mixed vegetable biryani", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=500&h=500&fit=crop&auto=format", isVeg: true },
@@ -89,6 +109,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Chicken, Grill, BBQ',
     rating: '4.0',
     deliveryTime: '30 mins',
+    pickupTime: '15 mins',
+    deliveryAvailable: false,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: true,
     menuItems: [
       { id: 1, name: "Grilled Chicken Breast", price: 9.99, desc: "[Non-Veg] Marinated chicken with herbs", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=500&h=500&fit=crop&auto=format", isVeg: false },
       { id: 2, name: "BBQ Chicken Wings", price: 8.99, desc: "[Non-Veg] Smoky BBQ wings", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=500&h=500&fit=crop&auto=format", isVeg: false },
@@ -108,6 +133,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Middle Eastern, Haleem, Traditional',
     rating: '4.6',
     deliveryTime: '50 mins',
+    pickupTime: '30 mins',
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: true,
     menuItems: [
       { id: 1, name: "Chicken Haleem", price: 7.99, desc: "[Non-Veg] Traditional slow-cooked haleem", image: "https://images.unsplash.com/photo-1563379091339-03246963d6a9?w=500&h=500&fit=crop&auto=format", isVeg: false },
       { id: 2, name: "Mutton Haleem", price: 8.99, desc: "[Non-Veg] Rich mutton haleem", image: "https://images.unsplash.com/photo-1563379091339-03246963d6a9?w=500&h=500&fit=crop&auto=format", isVeg: false },
@@ -127,6 +157,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Middle Eastern, Shawarma, Wraps',
     rating: '4.3',
     deliveryTime: '20 mins',
+    pickupTime: '10 mins',
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    cardPaymentAvailable: false,
+    cashOnDeliveryAvailable: true,
     menuItems: [
       { id: 1, name: "Chicken Shawarma", price: 6.99, desc: "[Non-Veg] Grilled chicken with tahini", image: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=500&h=500&fit=crop&auto=format", isVeg: false },
       { id: 2, name: "Beef Shawarma", price: 7.99, desc: "[Non-Veg] Spiced beef with garlic sauce", image: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=500&h=500&fit=crop&auto=format", isVeg: false },
@@ -146,6 +181,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Vegetarian, Healthy, Organic',
     rating: '4.7',
     deliveryTime: '35 mins',
+    pickupTime: '20 mins',
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: false,
     menuItems: [
       { id: 1, name: "Quinoa Buddha Bowl", price: 11.99, desc: "[Veg] Quinoa with roasted vegetables", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500&h=500&fit=crop&auto=format", isVeg: true },
       { id: 2, name: "Avocado Toast", price: 8.99, desc: "[Veg] Sourdough with avocado and seeds", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500&h=500&fit=crop&auto=format", isVeg: true },
@@ -165,6 +205,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Desserts, Cakes, Pastries',
     rating: '4.2',
     deliveryTime: '25 mins',
+    pickupTime: '15 mins',
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: true,
     menuItems: [
       { id: 1, name: "Chocolate Cake", price: 8.99, desc: "[Veg] Rich chocolate layer cake", image: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&h=500&fit=crop&auto=format", isVeg: true },
       { id: 2, name: "Red Velvet Cake", price: 9.99, desc: "[Veg] Classic red velvet with cream cheese", image: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&h=500&fit=crop&auto=format", isVeg: true },
@@ -184,6 +229,11 @@ const RESTAURANT_MENUS = {
     subtitle: 'Desserts, Ice Cream, Beverages',
     rating: '4.2',
     deliveryTime: '20 mins',
+    pickupTime: '10 mins',
+    deliveryAvailable: false,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: true,
     menuItems: [
       { id: 1, name: "Vanilla Ice Cream", price: 3.99, desc: "[Veg] Classic vanilla ice cream", image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=500&h=500&fit=crop&auto=format", isVeg: true },
       { id: 2, name: "Chocolate Ice Cream", price: 4.49, desc: "[Veg] Rich chocolate ice cream", image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=500&h=500&fit=crop&auto=format", isVeg: true },
@@ -251,6 +301,7 @@ export default function RestaurantScreen({ navigation, route }) {
     navigation.navigate("Cart", {
       cartItems,
       restaurantName: restaurantData.title,
+      restaurantData: restaurantData,
     });
   };
 

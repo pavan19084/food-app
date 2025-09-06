@@ -6,11 +6,14 @@ import {
 import { colors } from "../../constants/colors";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
+import { useOrder } from "../../context/OrderContext";
+import { Order } from "../../models/order";
 
 export default function CartScreen({ navigation, route }) {
   const { user } = useAuth();
+  const { setOrderPlaced } = useOrder();
 
-  const { cartItems = [], restaurantName = "Eat Healthy" } = route?.params || {};
+  const { cartItems = [], restaurantName = "Eat Healthy", restaurantData } = route?.params || {};
   const [items, setItems] = useState(
     cartItems.length > 0
       ? cartItems
@@ -28,6 +31,35 @@ export default function CartScreen({ navigation, route }) {
   );
 
   const [selectedPayment, setSelectedPayment] = useState("card");
+  const [selectedDeliveryType, setSelectedDeliveryType] = useState("delivery");
+
+  // Get restaurant capabilities with fallback
+  const capabilities = restaurantData || {
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    cardPaymentAvailable: true,
+    cashOnDeliveryAvailable: true,
+    deliveryTime: "45-50 mins",
+    pickupTime: "15-20 mins"
+  };
+
+  // Set default delivery type based on what's available
+  React.useEffect(() => {
+    if (!capabilities.deliveryAvailable && capabilities.pickupAvailable) {
+      setSelectedDeliveryType("pickup");
+    } else if (capabilities.deliveryAvailable && !capabilities.pickupAvailable) {
+      setSelectedDeliveryType("delivery");
+    }
+  }, [capabilities]);
+
+  // Set default payment method based on what's available
+  React.useEffect(() => {
+    if (!capabilities.cardPaymentAvailable && capabilities.cashOnDeliveryAvailable) {
+      setSelectedPayment("cod");
+    } else if (capabilities.cardPaymentAvailable && !capabilities.cashOnDeliveryAvailable) {
+      setSelectedPayment("card");
+    }
+  }, [capabilities]);
 
   // ---------- Zomato-like Notes ----------
   const QUICK_NOTE_TAGS = [
@@ -129,7 +161,7 @@ export default function CartScreen({ navigation, route }) {
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee = 1.5;
+  const deliveryFee = selectedDeliveryType === "delivery" ? 1.5 : 0;
   const taxes = subtotal * 0.05;
   const total = subtotal + deliveryFee + taxes;
 
@@ -197,8 +229,7 @@ export default function CartScreen({ navigation, route }) {
         };
 
     const orderDetails = {
-      orderId:
-        "ORD" + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      orderId: "ORD" + Math.random().toString(36).substr(2, 9).toUpperCase(),
       restaurantName,
       items: items.map((item) => ({
         name: item.name,
@@ -206,14 +237,14 @@ export default function CartScreen({ navigation, route }) {
         price: item.price,
       })),
       total,
-      deliveryAddress:
-        "Selected address is 825 m away from your location",
-      estimatedDelivery: "45-50 mins",
-      paymentMethod:
-        selectedPayment === "card" ? "Card Payment" : "Cash on Delivery",
+      deliveryType: selectedDeliveryType,
+      deliveryAddress: selectedDeliveryType === "delivery" ? "Selected address is 825 m away from your location" : "Pickup at restaurant",
+      estimatedDelivery: selectedDeliveryType === "delivery" ? capabilities.deliveryTime : capabilities.pickupTime,
+      paymentMethod: selectedPayment === "card" ? "Card Payment" : "Cash on Delivery",
       orderTime: new Date().toLocaleTimeString(),
       orderDate: new Date().toLocaleDateString(),
-      specialInstructions: notePayload, // <-- included like Zomato
+      specialInstructions: notePayload,
+      createdAt: new Date().toISOString(), // Add creation timestamp for order model
     };
 
     // Gate only here: if not logged in, open Login modal with redirect
@@ -224,6 +255,9 @@ export default function CartScreen({ navigation, route }) {
       });
       return;
     }
+
+    // Create order using Order model and set in context
+    setOrderPlaced(orderDetails);
 
     navigation.reset({
       index: 0,
@@ -243,9 +277,6 @@ export default function CartScreen({ navigation, route }) {
             45-50 mins to new • 18th Floor, Workspace
           </Text>
         </View>
-        <TouchableOpacity style={styles.shareButton}>
-          <Ionicons name="share-outline" size={24} color={colors.text} />
-        </TouchableOpacity>
       </View>
 
       {/* Location Info */}
@@ -330,6 +361,66 @@ export default function CartScreen({ navigation, route }) {
 
         </View>
 
+        {/* Delivery/Pickup Selection */}
+        {(capabilities.deliveryAvailable || capabilities.pickupAvailable) && (
+          <View style={styles.section}>
+            <View style={styles.paymentHeader}>
+              <Ionicons name="car-outline" size={20} color={colors.text} />
+              <Text style={styles.paymentHeaderText}>Delivery or Pickup</Text>
+            </View>
+
+            {capabilities.deliveryAvailable && (
+              <TouchableOpacity
+                style={[
+                  styles.paymentOption,
+                  selectedDeliveryType === "delivery" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+                ]}
+                onPress={() => setSelectedDeliveryType("delivery")}
+              >
+                <View style={styles.paymentLeft}>
+                  <Ionicons
+                    name="car-outline"
+                    size={20}
+                    color={selectedDeliveryType === "delivery" ? colors.primary : colors.textLight}
+                  />
+                  <View style={styles.deliveryOptionText}>
+                    <Text style={styles.paymentTitle}>Delivery</Text>
+                    <Text style={styles.deliverySubtitle}>{capabilities.deliveryTime} • £1.50 delivery fee</Text>
+                  </View>
+                </View>
+                <View style={[styles.radioButton, selectedDeliveryType === "delivery" && { borderColor: colors.primary }]}>
+                  {selectedDeliveryType === "delivery" && <View style={styles.radioButtonSelected} />}
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {capabilities.pickupAvailable && (
+              <TouchableOpacity
+                style={[
+                  styles.paymentOption,
+                  selectedDeliveryType === "pickup" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+                ]}
+                onPress={() => setSelectedDeliveryType("pickup")}
+              >
+                <View style={styles.paymentLeft}>
+                  <Ionicons
+                    name="storefront-outline"
+                    size={20}
+                    color={selectedDeliveryType === "pickup" ? colors.primary : colors.textLight}
+                  />
+                  <View style={styles.deliveryOptionText}>
+                    <Text style={styles.paymentTitle}>Pickup</Text>
+                    <Text style={styles.deliverySubtitle}>{capabilities.pickupTime} • No delivery fee</Text>
+                  </View>
+                </View>
+                <View style={[styles.radioButton, selectedDeliveryType === "pickup" && { borderColor: colors.primary }]}>
+                  {selectedDeliveryType === "pickup" && <View style={styles.radioButtonSelected} />}
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Payment Method */}
         <View className="payment" style={styles.section}>
           <View style={styles.paymentHeader}>
@@ -337,45 +428,49 @@ export default function CartScreen({ navigation, route }) {
             <Text style={styles.paymentHeaderText}>Payment Method</Text>
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.paymentOption,
-              selectedPayment === "card" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
-            ]}
-            onPress={() => setSelectedPayment("card")}
-          >
-            <View style={styles.paymentLeft}>
-              <Ionicons
-                name="card-outline"
-                size={20}
-                color={selectedPayment === "card" ? colors.primary : colors.textLight}
-              />
-              <Text style={styles.paymentTitle}>Card Payment</Text>
-            </View>
-            <View style={[styles.radioButton, selectedPayment === "card" && { borderColor: colors.primary }]}>
-              {selectedPayment === "card" && <View style={styles.radioButtonSelected} />}
-            </View>
-          </TouchableOpacity>
+          {capabilities.cardPaymentAvailable && (
+            <TouchableOpacity
+              style={[
+                styles.paymentOption,
+                selectedPayment === "card" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+              ]}
+              onPress={() => setSelectedPayment("card")}
+            >
+              <View style={styles.paymentLeft}>
+                <Ionicons
+                  name="card-outline"
+                  size={20}
+                  color={selectedPayment === "card" ? colors.primary : colors.textLight}
+                />
+                <Text style={styles.paymentTitle}>Card Payment</Text>
+              </View>
+              <View style={[styles.radioButton, selectedPayment === "card" && { borderColor: colors.primary }]}>
+                {selectedPayment === "card" && <View style={styles.radioButtonSelected} />}
+              </View>
+            </TouchableOpacity>
+          )}
 
-          <TouchableOpacity
-            style={[
-              styles.paymentOption,
-              selectedPayment === "cod" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
-            ]}
-            onPress={() => setSelectedPayment("cod")}
-          >
-            <View style={styles.paymentLeft}>
-              <Ionicons
-                name="cash-outline"
-                size={20}
-                color={selectedPayment === "cod" ? colors.primary : colors.textLight}
-              />
-              <Text style={styles.paymentTitle}>Cash on Delivery</Text>
-            </View>
-            <View style={[styles.radioButton, selectedPayment === "cod" && { borderColor: colors.primary }]}>
-              {selectedPayment === "cod" && <View style={styles.radioButtonSelected} />}
-            </View>
-          </TouchableOpacity>
+          {capabilities.cashOnDeliveryAvailable && (
+            <TouchableOpacity
+              style={[
+                styles.paymentOption,
+                selectedPayment === "cod" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+              ]}
+              onPress={() => setSelectedPayment("cod")}
+            >
+              <View style={styles.paymentLeft}>
+                <Ionicons
+                  name="cash-outline"
+                  size={20}
+                  color={selectedPayment === "cod" ? colors.primary : colors.textLight}
+                />
+                <Text style={styles.paymentTitle}>Cash on Delivery</Text>
+              </View>
+              <View style={[styles.radioButton, selectedPayment === "cod" && { borderColor: colors.primary }]}>
+                {selectedPayment === "cod" && <View style={styles.radioButtonSelected} />}
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Bill Summary */}
@@ -384,10 +479,12 @@ export default function CartScreen({ navigation, route }) {
             <Text style={styles.billLabel}>Subtotal</Text>
             <Text style={styles.billValue}>£{subtotal.toFixed(2)}</Text>
           </View>
-          <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Delivery Fee</Text>
-            <Text style={styles.billValue}>£{deliveryFee.toFixed(2)}</Text>
-          </View>
+          {selectedDeliveryType === "delivery" && (
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Delivery Fee</Text>
+              <Text style={styles.billValue}>£{deliveryFee.toFixed(2)}</Text>
+            </View>
+          )}
           <View style={styles.billRow}>
             <Text style={styles.billLabel}>Taxes</Text>
             <Text style={styles.billValue}>£{taxes.toFixed(2)}</Text>
@@ -598,6 +695,8 @@ const styles = StyleSheet.create({
   },
   paymentLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
   paymentTitle: { fontSize: 14, fontWeight: "500", color: colors.text, marginLeft: 12 },
+  deliveryOptionText: { flex: 1 },
+  deliverySubtitle: { fontSize: 12, color: colors.textLight, marginLeft: 12, marginTop: 2 },
   radioButton: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.textLight, alignItems: "center", justifyContent: "center" },
   radioButtonSelected: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
 

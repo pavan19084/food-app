@@ -13,6 +13,8 @@ import {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../constants/colors';
+import { useOrder } from '../context/OrderContext';
+import { Order } from '../models/order';
 
 const STAGES = [
   { key: 'confirmed', title: 'Order Confirmed', desc: 'We’ve received your order.', icon: 'checkmark-circle' },
@@ -24,26 +26,30 @@ const STAGE_SECONDS = 10; // exactly 10s per stage
 
 export default function OrderConfirmationScreen({ navigation, route }) {
   const { orderDetails } = route?.params || {};
+  const { clearActiveOrder } = useOrder();
 
-  // ---------- Sample order (fallback) ----------
-  const order = useMemo(
-    () =>
-      orderDetails || {
-        orderId: 'ORD' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        restaurantName: 'Eat Healthy',
-        items: [
-          { name: 'Plant Protein Bowl', quantity: 1, price: 8.99 },
-          { name: 'Veggie Strips', quantity: 1, price: 2.5 },
-        ],
-        total: 11.49,
-        deliveryAddress: 'Madhapur, Hyderabad, Telangana 500081',
-        estimatedDelivery: '45–50 mins',
-        paymentMethod: 'Card Payment',
-        orderTime: new Date().toLocaleTimeString(),
-        orderDate: new Date().toLocaleDateString(),
-      },
-    [orderDetails]
-  );
+  // Create Order instance from orderDetails
+  const order = useMemo(() => {
+    if (orderDetails) {
+      return new Order(orderDetails);
+    }
+    // Fallback order for testing
+    return new Order({
+      orderId: 'ORD' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      restaurantName: 'Eat Healthy',
+      items: [
+        { name: 'Plant Protein Bowl', quantity: 1, price: 8.99 },
+        { name: 'Veggie Strips', quantity: 1, price: 2.5 },
+      ],
+      total: 11.49,
+      deliveryAddress: 'Madhapur, Hyderabad, Telangana 500081',
+      estimatedDelivery: '45–50 mins',
+      paymentMethod: 'Card Payment',
+      orderTime: new Date().toLocaleTimeString(),
+      orderDate: new Date().toLocaleDateString(),
+      createdAt: new Date().toISOString(),
+    });
+  }, [orderDetails]);
 
   // ---------- Stage / Timer ----------
   const [stageIndex, setStageIndex] = useState(0); // 0..2 for three timed stages
@@ -120,10 +126,6 @@ export default function OrderConfirmationScreen({ navigation, route }) {
   const currentStage = delivered ? { title: 'Delivered', desc: 'Enjoy your meal!', icon: 'checkmark-done' } : STAGES[stageIndex];
 
   const format = (sec) => `0:${String(sec).padStart(2, '0')}`;
-
-  const handleTrackOrder = () => navigation.navigate('OrderTracking', { orderId: order.orderId });
-  const handleBackToHome = () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
-  const handleViewOrders = () => navigation.navigate('OrderHistory');
 
   // visual widths for progress
   const progressWidth = progressAnim.interpolate({
@@ -209,6 +211,7 @@ export default function OrderConfirmationScreen({ navigation, route }) {
           <Row label="Restaurant" value={order.restaurantName} />
           <Row label="Order Time" value={order.orderTime} />
           <Row label="Order Date" value={order.orderDate} />
+          <Row label="Type" value={order.deliveryType === "delivery" ? "Delivery" : "Pickup"} />
           <Row label="Payment" value={order.paymentMethod} />
         </View>
 
@@ -233,17 +236,17 @@ export default function OrderConfirmationScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* Delivery */}
+        {/* Delivery/Pickup */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="location" size={22} color={colors.primary} />
-            <Text style={styles.cardTitle}>Delivery</Text>
+            <Ionicons name={order.deliveryType === "delivery" ? "location" : "storefront"} size={22} color={colors.primary} />
+            <Text style={styles.cardTitle}>{order.deliveryType === "delivery" ? "Delivery" : "Pickup"}</Text>
           </View>
           <Text style={styles.address}>{order.deliveryAddress}</Text>
           <View style={styles.inline}>
             <Ionicons name="time-outline" size={16} color={colors.lightMode.textLight} />
             <Text style={styles.inlineText}>
-              {delivered ? 'Delivered' : `ETA: ${order.estimatedDelivery}`}
+              {delivered ? (order.deliveryType === "delivery" ? 'Delivered' : 'Ready for pickup') : `ETA: ${order.estimatedDelivery}`}
             </Text>
           </View>
         </View>
@@ -259,18 +262,6 @@ export default function OrderConfirmationScreen({ navigation, route }) {
           {!delivered && <Text style={styles.timerText}>⏱ {format(secondsLeft)} remaining</Text>}
         </View>
       </ScrollView>
-
-      {/* Bottom actions */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.primaryBtn} onPress={handleTrackOrder}>
-          <Ionicons name="navigate-outline" size={18} color={colors.lightMode.textWhite} />
-          <Text style={styles.primaryBtnText}>Track Order</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryBtn} onPress={handleBackToHome}>
-          <Ionicons name="home-outline" size={18} color={colors.primary} />
-          <Text style={styles.secondaryBtnText}>Back to Home</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -361,18 +352,4 @@ const styles = StyleSheet.create({
   statusTitle: { fontSize: 16, fontWeight: '800', color: colors.lightMode.text, marginBottom: 4 },
   statusDesc: { fontSize: 13, color: colors.lightMode.textLight, lineHeight: 20, marginBottom: 6 },
   timerText: { fontSize: 14, fontWeight: '800', color: colors.primary },
-
-  bottomBar: {
-    flexDirection: 'row', gap: 12, padding: 16, backgroundColor: colors.lightMode.surface,
-  },
-  primaryBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.primary, paddingVertical: 14, borderRadius: 12,
-  },
-  primaryBtnText: { marginLeft: 8, color: colors.lightMode.textWhite, fontSize: 15, fontWeight: '800' },
-  secondaryBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.lightMode.background, paddingVertical: 14, borderRadius: 12,
-  },
-  secondaryBtnText: { marginLeft: 8, color: colors.primary, fontSize: 15, fontWeight: '800' },
 });

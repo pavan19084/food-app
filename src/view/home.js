@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useOrder } from '../context/OrderContext';
 import { LocationService } from '../utils/locationService';
 
 const CATEGORY_ITEMS = [
@@ -188,6 +189,56 @@ const CategoryBubble = ({ item, selected, onPress }) => (
   </TouchableOpacity>
 );
 
+const OrderStatusBar = ({ order, onPress, onDismiss }) => {
+  const [remainingTime, setRemainingTime] = useState('');
+
+  useEffect(() => {
+    if (!order) return;
+
+    // Update remaining time immediately
+    setRemainingTime(order.getFormattedRemainingTime());
+
+    // Update every minute
+    const timer = setInterval(() => {
+      setRemainingTime(order.getFormattedRemainingTime());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, [order]);
+
+  if (!order) return null;
+
+  const orderSummary = order.getOrderSummary();
+
+  return (
+    <View style={styles.orderStatusBar}>
+      <TouchableOpacity onPress={onPress} style={styles.orderStatusContent}>
+        <Image 
+          source={{ uri: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop&auto=format' }} 
+          style={styles.orderStatusImage} 
+        />
+        <View style={styles.orderStatusText}>
+          <Text style={styles.orderStatusTitle}>{orderSummary.restaurantName}</Text>
+          <Text style={styles.orderStatusSubtitle}>View Order Details</Text>
+        </View>
+        <View style={styles.orderStatusRight}>
+          <Text style={styles.orderStatusCount}>
+            {orderSummary.totalItems} Item{orderSummary.totalItems > 1 ? 's' : ''} • {orderSummary.formattedPrice}
+          </Text>
+          <View style={styles.orderStatusButton}>
+            <Text style={styles.orderStatusButtonText}>
+              {remainingTime}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onDismiss} style={styles.orderStatusDismiss}>
+        <Text style={styles.orderStatusDismissText}>✕</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const RestaurantCard = ({ item }) => {
   const navigation = useNavigation();
 
@@ -234,6 +285,7 @@ const RestaurantCard = ({ item }) => {
 export default function Home() {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { activeOrder, showOrderNotification, dismissNotification } = useOrder();
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -291,6 +343,16 @@ export default function Home() {
     setSelectedFilter(selectedFilter === filter ? null : filter);
   };
 
+  const handleNotificationPress = () => {
+    if (activeOrder) {
+      navigation.navigate('OrderConfirmation', { orderDetails: activeOrder });
+    }
+  };
+
+  const handleDismissNotification = () => {
+    dismissNotification();
+  };
+
   const getFilteredRestaurants = () => {
     let filtered = RESTAURANTS;
 
@@ -317,6 +379,15 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF8F5" />
+
+      {/* Order Status Bar */}
+      {showOrderNotification && (
+        <OrderStatusBar
+          order={activeOrder}
+          onPress={handleNotificationPress}
+          onDismiss={handleDismissNotification}
+        />
+      )}
 
       {/* Location row */}
       <View style={styles.locationRow}>
@@ -376,7 +447,10 @@ export default function Home() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ paddingBottom: showOrderNotification ? 80 : 40 }} 
+        showsVerticalScrollIndicator={false}
+      >
         {/* Filter chips in one row */}
         <View style={styles.chipsRow}>
           <FilterChip 
@@ -667,5 +741,82 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     color: '#666',
+  },
+
+  /* ORDER STATUS BAR */
+  orderStatusBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
+    zIndex: 1000,
+  },
+  orderStatusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  orderStatusImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  orderStatusText: {
+    flex: 1,
+  },
+  orderStatusTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 2,
+  },
+  orderStatusSubtitle: {
+    fontSize: 12,
+    color: '#666',
+  },
+  orderStatusRight: {
+    alignItems: 'flex-end',
+  },
+  orderStatusCount: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  orderStatusButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  orderStatusButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  orderStatusDismiss: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderStatusDismissText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
   },
 });

@@ -20,6 +20,7 @@ import LocationModal from "./src/components/LocationModal";
 
 
 import { AuthProvider } from "./src/context/AuthContext";
+import { OrderProvider } from "./src/context/OrderContext";
 
 const Stack = createStackNavigator();
 
@@ -63,9 +64,11 @@ function MainStack() {
 export default function App() {
   return (
     <AuthProvider onLoggedOut={() => {}}>
-      <NavigationContainer>
-        <MainStack />
-      </NavigationContainer>
+      <OrderProvider>
+        <NavigationContainer>
+          <MainStack />
+        </NavigationContainer>
+      </OrderProvider>
     </AuthProvider>
   );
 }
