@@ -10,8 +10,9 @@ import {
   TouchableOpacity,
   StatusBar,
   SafeAreaView,
-  Alert,
+  Alert
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useOrder } from '../context/OrderContext';
@@ -40,6 +41,8 @@ const RESTAURANTS = [
     envNote: 'Always eat healthy, be healthy',
     onTap: 'Restaurant',
     category: 'healthy',
+    deliveryAvailable: true,
+    collectionAvailable: true,
   },
   {
     id: 'r2',
@@ -52,6 +55,8 @@ const RESTAURANTS = [
     envNote: 'Amul, taste of India',
     onTap: 'Restaurant',
     category: 'cake',
+    deliveryAvailable: false,
+    collectionAvailable: true,
   },
   {
     id: 'r3',
@@ -64,6 +69,8 @@ const RESTAURANTS = [
     envNote: 'Authentic Italian pizza made fresh daily',
     onTap: 'Restaurant',
     category: 'pizza',
+    deliveryAvailable: true,
+    collectionAvailable: true,
   },
   {
     id: 'r4',
@@ -76,6 +83,8 @@ const RESTAURANTS = [
     envNote: 'Juicy burgers with fresh ingredients',
     onTap: 'Restaurant',
     category: 'burger',
+    deliveryAvailable: true,
+    collectionAvailable: true,
   },
   {
     id: 'r5',
@@ -88,6 +97,8 @@ const RESTAURANTS = [
     envNote: 'Authentic Hyderabadi biryani',
     onTap: 'Restaurant',
     category: 'biryani',
+    deliveryAvailable: true,
+    collectionAvailable: false,
   },
   {
     id: 'r6',
@@ -100,6 +111,8 @@ const RESTAURANTS = [
     envNote: 'Grilled chicken with special marinades',
     onTap: 'Restaurant',
     category: 'chicken',
+    deliveryAvailable: false,
+    collectionAvailable: true,
   },
   {
     id: 'r7',
@@ -112,6 +125,8 @@ const RESTAURANTS = [
     envNote: 'Traditional haleem with authentic spices',
     onTap: 'Restaurant',
     category: 'haleem',
+    deliveryAvailable: true,
+    collectionAvailable: true,
   },
   {
     id: 'r8',
@@ -124,6 +139,8 @@ const RESTAURANTS = [
     envNote: 'Fresh shawarma wraps with homemade sauces',
     onTap: 'Restaurant',
     category: 'shawarma',
+    deliveryAvailable: true,
+    collectionAvailable: true,
   },
   {
     id: 'r9',
@@ -136,6 +153,8 @@ const RESTAURANTS = [
     envNote: '100% organic vegetarian cuisine',
     onTap: 'Restaurant',
     category: 'healthy',
+    deliveryAvailable: true,
+    collectionAvailable: true,
   },
   {
     id: 'r10',
@@ -148,6 +167,8 @@ const RESTAURANTS = [
     envNote: 'Homemade cakes and pastries',
     onTap: 'Restaurant',
     category: 'cake',
+    deliveryAvailable: true,
+    collectionAvailable: true,
   },
 ];
 
@@ -274,6 +295,22 @@ const RestaurantCard = ({ item }) => {
               <Text style={styles.badgeText}>{b}</Text>
             </View>
           ))}
+        </View>
+
+        {/* Delivery/Collection Indicators */}
+        <View style={styles.deliveryCollectionRow}>
+          {item.deliveryAvailable && (
+            <View style={styles.deliveryIndicator}>
+              <Ionicons name="bicycle-outline" size={14} color="#4CAF50" />
+              <Text style={styles.deliveryText}>Delivery</Text>
+            </View>
+          )}
+          {item.collectionAvailable && (
+            <View style={styles.collectionIndicator}>
+              <Ionicons name="storefront-outline" size={14} color="#FF9800" />
+              <Text style={styles.collectionText}>Collection</Text>
+            </View>
+          )}
         </View>
 
         <Text style={styles.envNote} numberOfLines={2}>{item.envNote}</Text>
@@ -532,11 +569,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
     backgroundColor: '#FFFFFF',
-    shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   locationInfoContainer: {
     flex: 1,
@@ -585,10 +617,6 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     backgroundColor: '#FFFFFF',
     color: '#333',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
   },
 
   /* Profile button */
@@ -662,19 +690,17 @@ const styles = StyleSheet.create({
 
   card: {
     marginHorizontal: 16,
-    borderRadius: RADIUS,
-    overflow: 'hidden',
+    borderRadius: 16,
     borderWidth: 1,
     backgroundColor: '#FFFFFF',
     borderColor: '#E0E0E0',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 16,
   },
   cardImage: {
     width: '100%',
     height: 180,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   cardBody: {
     padding: 16,
@@ -741,6 +767,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     color: '#666',
+  },
+
+  /* Delivery/Collection Indicators */
+  deliveryCollectionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  deliveryIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  deliveryText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginLeft: 4,
+  },
+  collectionIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  collectionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FF9800',
+    marginLeft: 4,
   },
 
   /* ORDER STATUS BAR */

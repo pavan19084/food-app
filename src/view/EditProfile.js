@@ -10,8 +10,6 @@ import {
   StatusBar,
   Image,
   Modal,
-  Platform,
-  SafeAreaView
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 

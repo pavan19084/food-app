@@ -4,6 +4,7 @@ export class Order {
   constructor(orderData) {
     this.id = orderData.orderId || orderData.id;
     this.restaurantName = orderData.restaurantName;
+    this.restaurantContact = orderData.restaurantContact;
     this.items = orderData.items || [];
     this.total = orderData.total;
     this.deliveryType = orderData.deliveryType || 'delivery';
@@ -44,7 +45,7 @@ export class Order {
   getFormattedRemainingTime() {
     const remaining = this.calculateRemainingTime();
     if (remaining <= 0) {
-      return this.deliveryType === 'delivery' ? 'Delivered' : 'Ready for pickup';
+      return this.deliveryType === 'delivery' ? 'Delivered' : 'Ready for collection';
     }
     return `${remaining} min left`;
   }

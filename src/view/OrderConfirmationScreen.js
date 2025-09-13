@@ -211,7 +211,7 @@ export default function OrderConfirmationScreen({ navigation, route }) {
           <Row label="Restaurant" value={order.restaurantName} />
           <Row label="Order Time" value={order.orderTime} />
           <Row label="Order Date" value={order.orderDate} />
-          <Row label="Type" value={order.deliveryType === "delivery" ? "Delivery" : "Pickup"} />
+          <Row label="Type" value={order.deliveryType === "delivery" ? "Delivery" : "Collection"} />
           <Row label="Payment" value={order.paymentMethod} />
         </View>
 
@@ -236,19 +236,34 @@ export default function OrderConfirmationScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* Delivery/Pickup */}
+        {/* Delivery/Collection */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name={order.deliveryType === "delivery" ? "location" : "storefront"} size={22} color={colors.primary} />
-            <Text style={styles.cardTitle}>{order.deliveryType === "delivery" ? "Delivery" : "Pickup"}</Text>
+            <Text style={styles.cardTitle}>{order.deliveryType === "delivery" ? "Delivery" : "Collection"}</Text>
           </View>
           <Text style={styles.address}>{order.deliveryAddress}</Text>
           <View style={styles.inline}>
             <Ionicons name="time-outline" size={16} color={colors.lightMode.textLight} />
             <Text style={styles.inlineText}>
-              {delivered ? (order.deliveryType === "delivery" ? 'Delivered' : 'Ready for pickup') : `ETA: ${order.estimatedDelivery}`}
+              {delivered ? (order.deliveryType === "delivery" ? 'Delivered' : 'Ready for collection') : `ETA: ${order.estimatedDelivery}`}
             </Text>
           </View>
+        </View>
+
+        {/* Restaurant Contact */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="call-outline" size={22} color={colors.primary} />
+            <Text style={styles.cardTitle}>Restaurant Contact</Text>
+          </View>
+          <Text style={styles.contactText}>
+            For any order-related issues, contact the restaurant directly:
+          </Text>
+          <TouchableOpacity style={styles.contactButton}>
+            <Ionicons name="call" size={16} color="#FFFFFF" />
+            <Text style={styles.contactButtonText}>{order.restaurantContact}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Info */}
@@ -352,4 +367,28 @@ const styles = StyleSheet.create({
   statusTitle: { fontSize: 16, fontWeight: '800', color: colors.lightMode.text, marginBottom: 4 },
   statusDesc: { fontSize: 13, color: colors.lightMode.textLight, lineHeight: 20, marginBottom: 6 },
   timerText: { fontSize: 14, fontWeight: '800', color: colors.primary },
+
+  /* Contact Section Styles */
+  contactText: {
+    fontSize: 14,
+    color: colors.lightMode.textLight,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  contactButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
 });

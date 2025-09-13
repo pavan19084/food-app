@@ -69,18 +69,32 @@ export const AuthProvider = ({ children, onLoggedOut }) => {
   setOnUnauthorized(signOut);
 
   const signIn = async ({ email, password }) => {
-    // Backend only returns token for verified users
-    const data = await apiLogin({ email, password });
-    if (!data?.token || !data?.user) {
-      // If backend sends e.g. { msg: "Account not verified" }, bubble it up
-      throw new Error(data?.msg || 'Invalid login response');
+    try {
+      // Backend only returns token for verified users
+      const data = await apiLogin({ email, password });
+      if (!data?.token || !data?.user) {
+        // If backend sends e.g. { msg: "Account not verified" }, bubble it up
+        throw new Error(data?.msg || 'Invalid login response');
+      }
+      const mapped = mapUser(data.user);
+      setUser(mapped);
+      setToken(data.token);
+      await AsyncStorage.setItem('@auth_token', data.token);
+      await AsyncStorage.setItem('@auth_user', JSON.stringify(mapped));
+      return mapped;
+    } catch (error) {
+      console.log('Login error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          baseURL: error.config?.baseURL
+        }
+      });
+      throw error;
     }
-    const mapped = mapUser(data.user);
-    setUser(mapped);
-    setToken(data.token);
-    await AsyncStorage.setItem('@auth_token', data.token);
-    await AsyncStorage.setItem('@auth_user', JSON.stringify(mapped));
-    return mapped;
   };
 
   const signUp = async ({ username, email, phone, password }) => {

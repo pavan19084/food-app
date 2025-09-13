@@ -36,17 +36,17 @@ export default function CartScreen({ navigation, route }) {
   // Get restaurant capabilities with fallback
   const capabilities = restaurantData || {
     deliveryAvailable: true,
-    pickupAvailable: true,
+    collectionAvailable: true,
     cardPaymentAvailable: true,
     cashOnDeliveryAvailable: true,
     deliveryTime: "45-50 mins",
-    pickupTime: "15-20 mins"
+    collectionTime: "15-20 mins"
   };
 
   // Set default delivery type based on what's available
   React.useEffect(() => {
-    if (!capabilities.deliveryAvailable && capabilities.pickupAvailable) {
-      setSelectedDeliveryType("pickup");
+    if (!capabilities.deliveryAvailable && capabilities.collectionAvailable) {
+      setSelectedDeliveryType("collection");
     } else if (capabilities.deliveryAvailable && !capabilities.pickupAvailable) {
       setSelectedDeliveryType("delivery");
     }
@@ -231,6 +231,7 @@ export default function CartScreen({ navigation, route }) {
     const orderDetails = {
       orderId: "ORD" + Math.random().toString(36).substr(2, 9).toUpperCase(),
       restaurantName,
+      restaurantContact: restaurantData?.contactNumber || '+1-555-0000',
       items: items.map((item) => ({
         name: item.name,
         quantity: item.quantity,
@@ -238,8 +239,8 @@ export default function CartScreen({ navigation, route }) {
       })),
       total,
       deliveryType: selectedDeliveryType,
-      deliveryAddress: selectedDeliveryType === "delivery" ? "Selected address is 825 m away from your location" : "Pickup at restaurant",
-      estimatedDelivery: selectedDeliveryType === "delivery" ? capabilities.deliveryTime : capabilities.pickupTime,
+      deliveryAddress: selectedDeliveryType === "delivery" ? "Selected address is 825 m away from your location" : "Collection at restaurant",
+      estimatedDelivery: selectedDeliveryType === "delivery" ? capabilities.deliveryTime : capabilities.collectionTime,
       paymentMethod: selectedPayment === "card" ? "Card Payment" : "Cash on Delivery",
       orderTime: new Date().toLocaleTimeString(),
       orderDate: new Date().toLocaleDateString(),
@@ -361,12 +362,12 @@ export default function CartScreen({ navigation, route }) {
 
         </View>
 
-        {/* Delivery/Pickup Selection */}
-        {(capabilities.deliveryAvailable || capabilities.pickupAvailable) && (
+        {/* Delivery/Collection Selection */}
+        {(capabilities.deliveryAvailable || capabilities.collectionAvailable) && (
           <View style={styles.section}>
             <View style={styles.paymentHeader}>
               <Ionicons name="car-outline" size={20} color={colors.text} />
-              <Text style={styles.paymentHeaderText}>Delivery or Pickup</Text>
+              <Text style={styles.paymentHeaderText}>Delivery or Collection</Text>
             </View>
 
             {capabilities.deliveryAvailable && (
@@ -394,27 +395,27 @@ export default function CartScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
 
-            {capabilities.pickupAvailable && (
+            {capabilities.collectionAvailable && (
               <TouchableOpacity
                 style={[
                   styles.paymentOption,
-                  selectedDeliveryType === "pickup" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+                  selectedDeliveryType === "collection" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
                 ]}
-                onPress={() => setSelectedDeliveryType("pickup")}
+                onPress={() => setSelectedDeliveryType("collection")}
               >
                 <View style={styles.paymentLeft}>
                   <Ionicons
                     name="storefront-outline"
                     size={20}
-                    color={selectedDeliveryType === "pickup" ? colors.primary : colors.textLight}
+                    color={selectedDeliveryType === "collection" ? colors.primary : colors.textLight}
                   />
                   <View style={styles.deliveryOptionText}>
-                    <Text style={styles.paymentTitle}>Pickup</Text>
-                    <Text style={styles.deliverySubtitle}>{capabilities.pickupTime} • No delivery fee</Text>
+                    <Text style={styles.paymentTitle}>Collection</Text>
+                    <Text style={styles.deliverySubtitle}>{capabilities.collectionTime} • No delivery fee</Text>
                   </View>
                 </View>
-                <View style={[styles.radioButton, selectedDeliveryType === "pickup" && { borderColor: colors.primary }]}>
-                  {selectedDeliveryType === "pickup" && <View style={styles.radioButtonSelected} />}
+                <View style={[styles.radioButton, selectedDeliveryType === "collection" && { borderColor: colors.primary }]}>
+                  {selectedDeliveryType === "collection" && <View style={styles.radioButtonSelected} />}
                 </View>
               </TouchableOpacity>
             )}
