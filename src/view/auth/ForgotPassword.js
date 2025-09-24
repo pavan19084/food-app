@@ -15,52 +15,54 @@ import {
   Keyboard,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
-import { useOrder } from "../../context/OrderContext";
 import { colors } from "../../constants/colors";
-import { Ionicons } from "@expo/vector-icons";
 
-
-export default function Login() {
+export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
-  const route = useRoute();
   const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
-  const { setOrderPlaced } = useOrder();
+  const { sendForgotPasswordOtp } = useAuth();
 
-  // Next-step routing (e.g., go to OrderConfirmation after login)
-  const next = route?.params?.next;
-  const nextParams = route?.params?.nextParams;
+  const validateEmail = (val) =>
+    /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(val);
 
-  const signInWithEmail = async () => {
+  const handleSendOtp = async () => {
+    if (!validateEmail(email)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      await signIn({ email: email.trim(), password });
-      if (next) {
-        // If we're going to OrderConfirmation, set the order in context for notification
-        if (next === "OrderConfirmation" && nextParams?.orderDetails) {
-          setOrderPlaced(nextParams.orderDetails);
-        }
-        navigation.replace(next, nextParams || {});
-      } else {
-        navigation.reset({ index: 0, routes: [{ name: "Home" }] });
-      }
-    } catch (error) {
-      console.log("Error in login: ", error?.message);
+      await sendForgotPasswordOtp({ email: email.trim() });
       Alert.alert(
-        "Login Error",
-        error?.response?.data?.msg || "Invalid credentials. Please try again."
+        "OTP Sent",
+        "Please check your email for the verification code.",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("ResetPassword", { email: email.trim() }),
+          },
+        ]
       );
+    } catch (error) {
+      console.log("Error sending OTP: ", error?.message);
+      Alert.alert(
+        "Error",
+        error?.response?.data?.msg || "Failed to send OTP. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   const keyboardOffset = Platform.select({
     ios: insets.top + 16,
-    android: 0, // 'height' handles it on Android
+    android: 0,
     default: 0,
   });
 
@@ -109,41 +111,28 @@ export default function Login() {
                   </View>
                   <Text
                     style={{
+                      fontSize: 20,
+                      color: colors.textWhite,
+                      fontWeight: "700",
+                      textAlign: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Forgot Password?
+                  </Text>
+                  <Text
+                    style={{
                       fontSize: 16,
                       color: colors.textWhite,
                       opacity: 0.9,
                       textAlign: "center",
                     }}
                   >
-                    Delicious food, delivered fresh
+                    Enter your email to receive a reset code
                   </Text>
                 </View>
-                <View style={{ marginBottom: 24 }}>
-                {/* Email Field */}
-                <TextInput
-                  style={{
-                    height: 56,
-                    borderRadius: 16,
-                    backgroundColor: "#fff",
-                    paddingHorizontal: 20,
-                    fontSize: 16,
-                    color: colors.text,
-                    marginBottom: 16,
-                    borderWidth: 1,
-                    borderColor: "#ccc",
-                  }}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#999"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  returnKeyType="next"
-                  value={email}
-                  onChangeText={setEmail}
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                />
 
-                {/* Password Field with Eye Button */}
-                <View>
+                <View style={{ marginBottom: 24 }}>
                   <TextInput
                     style={{
                       height: 56,
@@ -151,43 +140,30 @@ export default function Login() {
                       backgroundColor: "#fff",
                       paddingHorizontal: 20,
                       fontSize: 16,
-                      color: "#000",
+                      color: colors.text,
+                      marginBottom: 16,
                       borderWidth: 1,
                       borderColor: "#ccc",
-                      paddingRight: 48, // leave space for eye button
                     }}
-                    placeholder="Enter your password"
+                    placeholder="Enter your email"
                     placeholderTextColor="#999"
-                    secureTextEntry={!showPassword}
-                    value={password}
-                    onChangeText={setPassword}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
                     returnKeyType="done"
-                    onSubmitEditing={signInWithEmail}
+                    value={email}
+                    onChangeText={setEmail}
+                    onSubmitEditing={handleSendOtp}
                   />
-                  <TouchableOpacity
-                    style={{
-                      position: "absolute",
-                      right: 16,
-                      top: 14,
-                    }}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off" : "eye"}
-                      size={22}
-                      color="#666"
-                    />
-                  </TouchableOpacity>
-                </View>
                 </View>
 
                 <TouchableOpacity
-                  onPress={signInWithEmail}
+                  onPress={handleSendOtp}
                   activeOpacity={0.8}
+                  disabled={loading}
                   style={{
                     height: 56,
                     borderRadius: 16,
-                    backgroundColor: "#000",
+                    backgroundColor: loading ? "#666" : "#000",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
@@ -200,34 +176,16 @@ export default function Login() {
                       letterSpacing: 0.5,
                     }}
                   >
-                    Sign In
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("ForgotPassword")}
-                  style={{ marginTop: 16, alignItems: "center" }}
-                >
-                  <Text
-                    style={{
-                      color: colors.textWhite,
-                      fontSize: 16,
-                      fontWeight: "500",
-                      textDecorationLine: "underline",
-                    }}
-                  >
-                    Forgot Password?
+                    {loading ? "Sending..." : "Send Reset Code"}
                   </Text>
                 </TouchableOpacity>
 
                 <View style={{ marginTop: 24, alignItems: "center" }}>
-                  <Text
-                    style={{ color: colors.textWhite, fontSize: 16, opacity: 0.9 }}
-                  >
-                    Don't have an account?
+                  <Text style={{ color: colors.textWhite, fontSize: 16, opacity: 0.9 }}>
+                    Remember your password?
                   </Text>
                   <TouchableOpacity
-                    onPress={() => navigation.navigate("SignUp", { next, nextParams })}
+                    onPress={() => navigation.goBack()}
                     style={{ marginTop: 8 }}
                   >
                     <Text
@@ -238,7 +196,7 @@ export default function Login() {
                         textDecorationLine: "underline",
                       }}
                     >
-                      Create New Account
+                      Back to Sign In
                     </Text>
                   </TouchableOpacity>
                 </View>

@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LocationService } from '../utils/locationService';
+import { colors } from '../constants/colors';
+import { updateAddress } from '../api/address';
 
 const NEARBY_AREAS = [
   { id: '1', name: 'Madhapur', city: 'Hyderabad', state: 'Telangana', pincode: '500081' },
@@ -29,46 +31,15 @@ const LocationModal = ({ navigation, route }) => {
   const { onLocationSelect, currentLocation } = route?.params || {};
   const visible = true; // Always visible when used as screen
   const onClose = () => navigation.goBack();
-  const [activeTab, setActiveTab] = useState('saved'); // 'saved', 'add', 'popular'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredAreas, setFilteredAreas] = useState(NEARBY_AREAS);
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
-
-  // Add new address form state
-  const [newAddress, setNewAddress] = useState({
-    name: '',
-    phone: '',
-    pincode: '',
-    city: '',
-    state: '',
-    landmark: '',
-    floor: '',
-    street: '',
-    addressType: 'home', // home, work, other
-  });
-  const [isAddingAddress, setIsAddingAddress] = useState(false);
-  const [isPincodeLoading, setIsPincodeLoading] = useState(false);
 
   useEffect(() => {
     if (visible) {
       loadSavedAddresses();
     }
   }, [visible]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredAreas(NEARBY_AREAS);
-    } else {
-      const filtered = NEARBY_AREAS.filter(area =>
-        area.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        area.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        area.pincode.includes(searchQuery)
-      );
-      setFilteredAreas(filtered);
-    }
-  }, [searchQuery]);
 
   const loadSavedAddresses = async () => {
     setIsLoadingAddresses(true);
@@ -113,72 +84,6 @@ const LocationModal = ({ navigation, route }) => {
     onClose();
   };
 
-  const handlePincodeChange = async (pincode) => {
-    setNewAddress(prev => ({ ...prev, pincode }));
-    
-    if (pincode.length === 6) {
-      setIsPincodeLoading(true);
-      try {
-        const cityState = await LocationService.getCityStateFromPincode(pincode);
-        setNewAddress(prev => ({
-          ...prev,
-          city: cityState.city,
-          state: cityState.state,
-        }));
-      } catch (error) {
-        Alert.alert('Invalid Pincode', 'Please enter a valid 6-digit pincode.');
-        setNewAddress(prev => ({ ...prev, city: '', state: '' }));
-      } finally {
-        setIsPincodeLoading(false);
-      }
-    }
-  };
-
-  const handleAddAddress = async () => {
-    if (!newAddress.name || !newAddress.phone || !newAddress.pincode || !newAddress.street) {
-      Alert.alert('Missing Information', 'Please fill in all required fields.');
-      return;
-    }
-
-    setIsAddingAddress(true);
-    try {
-      const addressData = {
-        name: newAddress.name,
-        phone: newAddress.phone,
-        pincode: newAddress.pincode,
-        city: newAddress.city,
-        state: newAddress.state,
-        landmark: newAddress.landmark,
-        floor: newAddress.floor,
-        street: newAddress.street,
-        addressType: newAddress.addressType,
-        fullAddress: `${newAddress.street}${newAddress.floor ? `, Floor ${newAddress.floor}` : ''}${newAddress.landmark ? `, ${newAddress.landmark}` : ''}, ${newAddress.city}, ${newAddress.state} ${newAddress.pincode}`,
-      };
-
-      await LocationService.saveAddress(addressData);
-      await loadSavedAddresses();
-      
-      // Reset form
-      setNewAddress({
-        name: '',
-        phone: '',
-        pincode: '',
-        city: '',
-        state: '',
-        landmark: '',
-        floor: '',
-        street: '',
-        addressType: 'home',
-      });
-      
-      setActiveTab('saved');
-      Alert.alert('Success', 'Address added successfully!');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add address. Please try again.');
-    } finally {
-      setIsAddingAddress(false);
-    }
-  };
 
   const handleAddressSelect = (address) => {
     const locationData = {
@@ -225,6 +130,13 @@ const LocationModal = ({ navigation, route }) => {
     }
   };
 
+  const handleEditAddress = (address) => {
+    navigation.navigate('AddAddressScreen', { 
+      editMode: true, 
+      addressData: address 
+    });
+  };
+
   const renderAreaItem = ({ item }) => (
     <TouchableOpacity
       style={styles.areaItem}
@@ -241,50 +153,71 @@ const LocationModal = ({ navigation, route }) => {
     </TouchableOpacity>
   );
 
-  const renderSavedAddressItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.savedAddressItem}
-      onPress={() => handleAddressSelect(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.addressHeader}>
-        <View style={styles.addressTypeIcon}>
-          <Ionicons 
-            name={item.addressType === 'home' ? 'home' : item.addressType === 'work' ? 'briefcase' : 'location'} 
-            size={16} 
-            color="#666" 
-          />
-        </View>
-        <View style={styles.addressInfo}>
-          <Text style={styles.addressName}>{item.name}</Text>
-          <Text style={styles.addressPhone}>{item.phone}</Text>
-          <Text style={styles.addressText} numberOfLines={2}>{item.fullAddress}</Text>
-        </View>
-        {item.isDefault && (
-          <View style={styles.defaultBadge}>
-            <Text style={styles.defaultBadgeText}>Default</Text>
+  const renderSavedAddressItem = ({ item }) => {
+    // Format the address for display
+    const formatAddress = (address) => {
+      const parts = [];
+      if (address.addressline1) parts.push(address.addressline1);
+      if (address.addressline2) parts.push(address.addressline2);
+      if (address.area) parts.push(address.area);
+      if (address.city) parts.push(address.city);
+      if (address.state) parts.push(address.state);
+      if (address.pincode) parts.push(address.pincode);
+      return parts.join(', ');
+    };
+
+    return (
+      <View style={styles.savedAddressCard}>
+      <TouchableOpacity
+          style={styles.addressCardContent}
+        onPress={() => handleAddressSelect(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.addressHeader}>
+          <View style={styles.addressTypeIcon}>
+            <Ionicons 
+                name="home" 
+                size={20} 
+                color="#FF8C00" 
+            />
           </View>
-        )}
-      </View>
-      
-      <View style={styles.addressActions}>
-        {!item.isDefault && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleSetDefault(item.id)}
-          >
-            <Text style={styles.actionButtonText}>Set Default</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => handleDeleteAddress(item.id)}
-        >
-          <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+          <View style={styles.addressInfo}>
+              <View style={styles.addressTitleRow}>
+            <Text style={styles.addressName}>
+                  {item.addressline1 || 'Home'}
+            </Text>
+                <Text style={styles.addressDistance}>8 m</Text>
+              </View>
+            <Text style={styles.addressText} numberOfLines={2}>
+              {formatAddress(item)}
+            </Text>
+              <Text style={styles.addressPhone}>+91-9104562733</Text>
+            {item.delivery_instructions && (
+              <Text style={styles.deliveryInstructions}>
+                Instructions: {item.delivery_instructions}
+              </Text>
+            )}
+          </View>
+        </View>
         </TouchableOpacity>
+        
+        <View style={styles.addressCardActions}>
+          <TouchableOpacity
+            style={styles.cardActionButton}
+            onPress={() => handleEditAddress(item)}
+          >
+            <Ionicons name="create-outline" size={16} color="#666" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cardActionButton}
+            onPress={() => handleDeleteAddress(item.id)}
+          >
+            <Ionicons name="trash-outline" size={16} color="#F44336" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <Modal
@@ -302,53 +235,51 @@ const LocationModal = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Current Location Button */}
+        {/* Location Options */}
+        <View style={styles.locationOptions}>
         <TouchableOpacity
-          style={styles.currentLocationButton}
+            style={styles.locationOption}
           onPress={handleUseCurrentLocation}
           disabled={isUpdatingLocation}
         >
+            <View style={styles.optionIcon}>
           {isUpdatingLocation ? (
-            <ActivityIndicator size="small" color="#FF6B6B" />
-          ) : (
-            <Ionicons name="location" size={20} color="#FF6B6B" />
-          )}
-          <Text style={styles.currentLocationText}>
-            {isUpdatingLocation ? 'Getting your location...' : 'Use my current location'}
+                <ActivityIndicator size="small" color="#FF8C00" />
+              ) : (
+                <Ionicons name="locate" size={20} color="#FF8C00" />
+              )}
+            </View>
+            <View style={styles.optionContent}>
+              <Text style={styles.optionTitle}>
+                {isUpdatingLocation ? 'Getting your location...' : 'Use current location'}
           </Text>
+              {currentLocation && !isUpdatingLocation && (
+                <Text style={styles.optionSubtitle}>
+                  {currentLocation.street}, {currentLocation.city}
+                </Text>
+              )}
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
         </TouchableOpacity>
 
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
-            onPress={() => setActiveTab('saved')}
+            style={styles.locationOption}
+            onPress={() => navigation.navigate('AddAddressScreen')}
           >
-            <Text style={[styles.tabText, activeTab === 'saved' && styles.activeTabText]}>
-              Saved ({savedAddresses.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'add' && styles.activeTab]}
-            onPress={() => setActiveTab('add')}
-          >
-            <Text style={[styles.tabText, activeTab === 'add' && styles.activeTabText]}>
-              Add New
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'popular' && styles.activeTab]}
-            onPress={() => setActiveTab('popular')}
-          >
-            <Text style={[styles.tabText, activeTab === 'popular' && styles.activeTabText]}>
-              Popular
-            </Text>
+            <View style={styles.optionIcon}>
+              <Ionicons name="add-circle" size={20} color="#FF8C00" />
+            </View>
+            <View style={styles.optionContent}>
+              <Text style={styles.optionTitle}>Add Address</Text>
+              <Text style={styles.optionSubtitle}>Add a new delivery address</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
         </View>
 
-        {/* Tab Content */}
-        {activeTab === 'saved' && (
-          <View style={styles.tabContent}>
+        {/* Saved Addresses Section */}
+        <View style={styles.savedAddressesSection}>
+          <Text style={styles.sectionTitle}>SAVED ADDRESSES</Text>
             {isLoadingAddresses ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#FF6B6B" />
@@ -370,168 +301,8 @@ const LocationModal = ({ navigation, route }) => {
               />
             )}
           </View>
-        )}
 
-        {activeTab === 'add' && (
-          <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.addAddressForm}>
-              <Text style={styles.formTitle}>Add New Address</Text>
-              
-              {/* Address Type Selection */}
-              <View style={styles.addressTypeContainer}>
-                <TouchableOpacity
-                  style={[styles.typeButton, newAddress.addressType === 'home' && styles.typeButtonActive]}
-                  onPress={() => setNewAddress(prev => ({ ...prev, addressType: 'home' }))}
-                >
-                  <Ionicons name="home" size={20} color={newAddress.addressType === 'home' ? '#FFF' : '#666'} />
-                  <Text style={[styles.typeButtonText, newAddress.addressType === 'home' && styles.typeButtonTextActive]}>
-                    Home
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.typeButton, newAddress.addressType === 'work' && styles.typeButtonActive]}
-                  onPress={() => setNewAddress(prev => ({ ...prev, addressType: 'work' }))}
-                >
-                  <Ionicons name="briefcase" size={20} color={newAddress.addressType === 'work' ? '#FFF' : '#666'} />
-                  <Text style={[styles.typeButtonText, newAddress.addressType === 'work' && styles.typeButtonTextActive]}>
-                    Work
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.typeButton, newAddress.addressType === 'other' && styles.typeButtonActive]}
-                  onPress={() => setNewAddress(prev => ({ ...prev, addressType: 'other' }))}
-                >
-                  <Ionicons name="location" size={20} color={newAddress.addressType === 'other' ? '#FFF' : '#666'} />
-                  <Text style={[styles.typeButtonText, newAddress.addressType === 'other' && styles.typeButtonTextActive]}>
-                    Other
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
-              {/* Form Fields */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Name *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter your name"
-                  value={newAddress.name}
-                  onChangeText={(text) => setNewAddress(prev => ({ ...prev, name: text }))}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Phone *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter phone number"
-                  keyboardType="phone-pad"
-                  value={newAddress.phone}
-                  onChangeText={(text) => setNewAddress(prev => ({ ...prev, phone: text }))}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Pincode *</Text>
-                <View style={styles.pincodeContainer}>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Enter 6-digit pincode"
-                    keyboardType="numeric"
-                    maxLength={6}
-                    value={newAddress.pincode}
-                    onChangeText={handlePincodeChange}
-                  />
-                  {isPincodeLoading && (
-                    <ActivityIndicator size="small" color="#FF6B6B" style={styles.pincodeLoader} />
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>City</Text>
-                <TextInput
-                  style={[styles.textInput, styles.disabledInput]}
-                  placeholder="Auto-filled from pincode"
-                  value={newAddress.city}
-                  editable={false}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>State</Text>
-                <TextInput
-                  style={[styles.textInput, styles.disabledInput]}
-                  placeholder="Auto-filled from pincode"
-                  value={newAddress.state}
-                  editable={false}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Street Address *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="House/Flat number, Street name"
-                  value={newAddress.street}
-                  onChangeText={(text) => setNewAddress(prev => ({ ...prev, street: text }))}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Floor/Unit (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Floor number, Unit number, etc."
-                  value={newAddress.floor}
-                  onChangeText={(text) => setNewAddress(prev => ({ ...prev, floor: text }))}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Landmark (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Near hospital, school, mall, etc."
-                  value={newAddress.landmark}
-                  onChangeText={(text) => setNewAddress(prev => ({ ...prev, landmark: text }))}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={handleAddAddress}
-                disabled={isAddingAddress}
-              >
-                {isAddingAddress ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Text style={styles.addButtonText}>Add Address</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        )}
-
-        {activeTab === 'popular' && (
-          <View style={styles.tabContent}>
-            <View style={styles.searchContainer}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search for area, city, or pincode..."
-                placeholderTextColor="#999"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-            <FlatList
-              data={filteredAreas}
-              renderItem={renderAreaItem}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
-          </View>
-        )}
       </View>
     </Modal>
   );
@@ -540,7 +311,7 @@ const LocationModal = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F5',
+    backgroundColor: colors.background,
     paddingTop: 50,
   },
   header: {
@@ -550,47 +321,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: colors.text,
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textLight,
     fontWeight: '600',
   },
   currentLocationButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginTop: 16,
+    backgroundColor: '#F8F9FF',
+    marginBottom: 20,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    shadowOpacity: 0.1,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#E8F0FF',
+    shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   currentLocationText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#4A5568',
     marginLeft: 12,
   },
   
@@ -683,7 +453,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFF3E0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -706,6 +476,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
+  },
+  deliveryInstructions: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   defaultBadge: {
     backgroundColor: '#4CAF50',
@@ -744,15 +520,20 @@ const styles = StyleSheet.create({
   // Add Address Form
   addAddressForm: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   formTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#333',
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: 'center',
   },
   addressTypeContainer: {
@@ -783,22 +564,45 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  required: {
+    color: '#FF6B6B',
+    fontWeight: 'bold',
+  },
+  autoFilled: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: 'normal',
+  },
+  errorInput: {
+    borderColor: '#FF6B6B',
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginTop: 4,
+    fontWeight: '500',
   },
   textInput: {
     backgroundColor: '#F8F8F8',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 1,
   },
   disabledInput: {
     backgroundColor: '#F0F0F0',
@@ -814,33 +618,250 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: '#FF6B6B',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   addButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   
-  // Search and Popular Areas
+  // Search and Location Options
   searchContainer: {
+    marginHorizontal: 20,
     marginBottom: 16,
   },
   searchInput: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 0,
+    elevation: 0,
+    color: colors.text,
+  },
+  locationOptions: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  locationOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  optionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF3E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  optionContent: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  optionSubtitle: {
+    fontSize: 14,
+    color: colors.textLight,
+  },
+  savedAddressesSection: {
+    flex: 1,
+    marginHorizontal: 20,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textLight,
+    textAlign: 'center',
+    marginBottom: 16,
+    letterSpacing: 1,
+  },
+  savedAddressCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#000000',
+    shadowOpacity: 0,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  addressCardContent: {
+    padding: 16,
+  },
+  addressTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  addressDistance: {
+    fontSize: 12,
+    color: colors.textLight,
+    fontWeight: '500',
+  },
+  addressPhone: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginTop: 4,
+  },
+  addressCardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  cardActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addFormOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addFormContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 20,
+    maxHeight: '80%',
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  addFormHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  addFormTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+  addFormContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  editFormOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editFormContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    marginHorizontal: 20,
+    maxHeight: '80%',
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  editFormHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  editFormTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  editFormContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  editFormActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: colors.border,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  updateButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+  },
+  updateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textWhite,
+  },
+  multilineInput: {
+    height: 80,
+    textAlignVertical: 'top',
   },
   areaItem: {
     flexDirection: 'row',

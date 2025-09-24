@@ -6,6 +6,8 @@ import {
   verifyOtp as apiVerifyOtp,
   verifyToken as apiVerifyToken,
   logout as apiLogout,
+  sendOtp,
+  changePassword,
 } from '../api/auth';
 import { getUserById, patchUser } from '../api/user';
 import { mapUser } from '../models/user';
@@ -117,8 +119,27 @@ export const AuthProvider = ({ children, onLoggedOut }) => {
     return updated;
   };
 
+  const sendForgotPasswordOtp = async ({ email }) => {
+    return sendOtp({ email, reason: 'password_reset' });
+  };
+
+  const resetPassword = async ({ email, otp, newPassword }) => {
+    return changePassword({ email, otp, newPassword });
+  };
+
   const value = useMemo(
-    () => ({ user, token, loading, signIn, signOut, signUp, confirmOtp, saveProfile }),
+    () => ({ 
+      user, 
+      token, 
+      loading, 
+      signIn, 
+      signOut, 
+      signUp, 
+      confirmOtp, 
+      saveProfile,
+      sendForgotPasswordOtp,
+      resetPassword
+    }),
     [user, token, loading]
   );
 

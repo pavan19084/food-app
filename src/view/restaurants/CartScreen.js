@@ -98,13 +98,14 @@ export default function CartScreen({ navigation, route }) {
 
   const notePreview = () => {
     if (dontSendNote) return "Don't send";
-    if (!hasAnyNote) return "Add a note for the restaurant";
+  
+    const count = noteTags.length + (customNote.trim() ? 1 : 0);
+    if (count === 0) return "Add a note for the restaurant";
+  
     const first = noteTags[0] || customNote.trim();
-    const count =
-      (noteTags.length + (customNote.trim().length ? 1 : 0));
-    return count > 1 ? `${count} notes • "${first}"` : `"${first}"`;
+    return count > 1 ? `"${first}" +${count - 1} more` : `"${first}"`;
   };
-  // --------------------------------------
+  
 
   const suggestions = [
     {
@@ -465,7 +466,11 @@ export default function CartScreen({ navigation, route }) {
                   size={20}
                   color={selectedPayment === "cod" ? colors.primary : colors.textLight}
                 />
-                <Text style={styles.paymentTitle}>Cash on Delivery</Text>
+                <Text style={styles.paymentTitle}>
+                  {selectedDeliveryType === "collection"
+                    ? "Cash on Collection"
+                    : "Cash on Delivery"}
+                </Text>
               </View>
               <View style={[styles.radioButton, selectedPayment === "cod" && { borderColor: colors.primary }]}>
                 {selectedPayment === "cod" && <View style={styles.radioButtonSelected} />}

@@ -71,29 +71,50 @@ export default function SavedAddressesScreen({ navigation }) {
     Alert.alert('Edit Address', 'Edit functionality coming soon!');
   };
 
-  const renderAddressItem = ({ item }) => (
-    <View style={styles.addressCard}>
-      <View style={styles.addressHeader}>
-        <View style={styles.addressTypeIcon}>
-          <Ionicons 
-            name={item.addressType === 'home' ? 'home' : item.addressType === 'work' ? 'briefcase' : 'location'} 
-            size={20} 
-            color="#666" 
-          />
-        </View>
-        <View style={styles.addressInfo}>
-          <View style={styles.addressTopRow}>
-            <Text style={styles.addressName}>{item.name}</Text>
-            {item.isDefault && (
-              <View style={styles.defaultBadge}>
-                <Text style={styles.defaultBadgeText}>Default</Text>
-              </View>
+  const renderAddressItem = ({ item }) => {
+    // Format the address for display
+    const formatAddress = (address) => {
+      const parts = [];
+      if (address.addressline1) parts.push(address.addressline1);
+      if (address.addressline2) parts.push(address.addressline2);
+      if (address.area) parts.push(address.area);
+      if (address.city) parts.push(address.city);
+      if (address.state) parts.push(address.state);
+      if (address.pincode) parts.push(address.pincode);
+      return parts.join(', ');
+    };
+
+    return (
+      <View style={styles.addressCard}>
+        <View style={styles.addressHeader}>
+          <View style={styles.addressTypeIcon}>
+            <Ionicons 
+              name="location" 
+              size={20} 
+              color="#666" 
+            />
+          </View>
+          <View style={styles.addressInfo}>
+            <View style={styles.addressTopRow}>
+              <Text style={styles.addressName}>
+                {item.addressline1 || 'Floor/Street'}
+              </Text>
+              {item.isDefault && (
+                <View style={styles.defaultBadge}>
+                  <Text style={styles.defaultBadgeText}>Default</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.addressText} numberOfLines={3}>
+              {formatAddress(item)}
+            </Text>
+            {item.delivery_instructions && (
+              <Text style={styles.deliveryInstructions}>
+                Instructions: {item.delivery_instructions}
+              </Text>
             )}
           </View>
-          <Text style={styles.addressPhone}>{item.phone}</Text>
-          <Text style={styles.addressText} numberOfLines={3}>{item.fullAddress}</Text>
         </View>
-      </View>
       
       <View style={styles.addressActions}>
         <TouchableOpacity
@@ -123,7 +144,8 @@ export default function SavedAddressesScreen({ navigation }) {
         </TouchableOpacity>
       </View>
     </View>
-  );
+    );
+  };
 
   if (isLoading) {
     return (
@@ -182,9 +204,9 @@ export default function SavedAddressesScreen({ navigation }) {
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>
-                  {savedAddresses.filter(addr => addr.isDefault).length}
+                  {savedAddresses.filter(addr => addr.delivery_instructions).length}
                 </Text>
-                <Text style={styles.statLabel}>Default Set</Text>
+                <Text style={styles.statLabel}>With Instructions</Text>
               </View>
             </View>
 
@@ -203,7 +225,6 @@ export default function SavedAddressesScreen({ navigation }) {
               onPress={() => navigation.navigate('LocationModal')}
             >
               <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-              <Text style={styles.addMoreButtonText}>Add New Address</Text>
             </TouchableOpacity>
           </>
         )}
@@ -382,6 +403,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     lineHeight: 20,
+  },
+  deliveryInstructions: {
+    fontSize: 12,
+    color: colors.textLight,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   addressActions: {
     flexDirection: 'row',

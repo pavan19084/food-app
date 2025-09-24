@@ -7,11 +7,6 @@
     "icon": "./assets/playstore.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon-dark.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FF6B35"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pavan1984.foodapp",

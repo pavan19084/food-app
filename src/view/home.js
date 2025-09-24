@@ -430,7 +430,10 @@ export default function Home() {
       <View style={styles.locationRow}>
         <TouchableOpacity 
           style={styles.locationInfoContainer}
-          onPress={handleRefreshLocation}
+          onPress={() => navigation.navigate('LocationModal', { 
+            onLocationSelect: handleLocationSelect, 
+            currentLocation: currentLocation 
+          })}
           disabled={isLoadingLocation}
         >
           <Text style={styles.locationPin}>📍</Text>
@@ -443,10 +446,10 @@ export default function Home() {
             ) : currentLocation ? (
               <>
                 <Text style={styles.locationCity}>
-                  {currentLocation.city}, {currentLocation.state}
+                  {currentLocation.street}, {currentLocation.city}
                 </Text>
                 <Text style={styles.locationSub}>
-                  Delivering to: {currentLocation.street} {currentLocation.postalCode}
+                  {currentLocation.state} {currentLocation.postalCode}
                 </Text>
               </>
             ) : (
@@ -478,7 +481,7 @@ export default function Home() {
         <TouchableOpacity
           style={styles.profileBtn}
           activeOpacity={0.8}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => user ? navigation.navigate('Profile') : navigation.navigate('Login', { next: 'Home', nextParams: {} })}
         >
           <Text style={styles.profileInitials}>{initials}</Text>
         </TouchableOpacity>

@@ -1,5 +1,5 @@
 import "react-native-gesture-handler";
-import React from "react";
+import React, { useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 
@@ -7,6 +7,8 @@ import { createStackNavigator } from "@react-navigation/stack";
 import Login from "./src/view/auth/login";
 import SignUp from "./src/view/auth/signup";
 import VerifyOtp from "./src/view/auth/VerifyOtp";
+import ForgotPassword from "./src/view/auth/ForgotPassword";
+import ResetPassword from "./src/view/auth/ResetPassword";
 
 // APP SCREENS (publicly browsable)
 import Home from "./src/view/home";
@@ -16,10 +18,12 @@ import RestaurantScreen from "./src/view/restaurants/RestaurantScreen";
 import CartScreen from "./src/view/restaurants/CartScreen";
 import OrderConfirmationScreen from "./src/view/OrderConfirmationScreen";
 import SavedAddressesScreen from "./src/view/SavedAddressesScreen";
+import AddAddressScreen from "./src/view/AddAddressScreen";
 import LocationModal from "./src/components/LocationModal";
+import SplashScreen from "./src/components/SplashScreen";
 
 
-import { AuthProvider } from "./src/context/AuthContext";
+import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { OrderProvider } from "./src/context/OrderContext";
 
 const Stack = createStackNavigator();
@@ -39,6 +43,7 @@ function MainStack() {
       />
       <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} />
       <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} />
+      <Stack.Screen name="AddAddressScreen" component={AddAddressScreen} />
       <Stack.Screen name="LocationModal" component={LocationModal} />
 
       {/* Auth modals */}
@@ -57,7 +62,50 @@ function MainStack() {
         component={VerifyOtp}
         options={{ presentation: "modal", headerShown: false }}
       />
+      <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPassword}
+        options={{ presentation: "modal", headerShown: false }}
+      />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPassword}
+        options={{ presentation: "modal", headerShown: false }}
+      />
     </Stack.Navigator>
+  );
+}
+
+function AppContent() {
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
+  const { loading } = useAuth();
+
+  const handleSplashFinish = () => {
+    setSplashAnimationComplete(true);
+  };
+
+  // Show splash screen until both animation is complete AND auth loading is done
+  const shouldShowSplash = showSplash && (!splashAnimationComplete || loading);
+
+  React.useEffect(() => {
+    if (splashAnimationComplete && !loading) {
+      // Add a small delay before hiding splash to ensure smooth transition
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [splashAnimationComplete, loading]);
+
+  if (shouldShowSplash) {
+    return <SplashScreen onAnimationFinish={handleSplashFinish} />;
+  }
+
+  return (
+    <NavigationContainer>
+      <MainStack />
+    </NavigationContainer>
   );
 }
 
@@ -65,9 +113,7 @@ export default function App() {
   return (
     <AuthProvider onLoggedOut={() => {}}>
       <OrderProvider>
-        <NavigationContainer>
-          <MainStack />
-        </NavigationContainer>
+        <AppContent />
       </OrderProvider>
     </AuthProvider>
   );

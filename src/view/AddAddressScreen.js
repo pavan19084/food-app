@@ -1,0 +1,475 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  StatusBar,
+  SafeAreaView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { LocationService } from '../utils/locationService';
+import { colors } from '../constants/colors';
+import { updateAddress } from '../api/address';
+
+export default function AddAddressScreen({ route }) {
+  const navigation = useNavigation();
+  const { editMode = false, addressData = null } = route?.params || {};
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [isPincodeLoading, setIsPincodeLoading] = useState(false);
+
+  // Add new address form state
+  const [newAddress, setNewAddress] = useState({
+    addressline1: editMode ? (addressData?.addressline1 || '') : '', // floor/street (mandatory)
+    addressline2: editMode ? (addressData?.addressline2 || '') : '', // landmark (optional)
+    area: editMode ? (addressData?.area || '') : '',
+    state: editMode ? (addressData?.state || '') : '',
+    country: 'india',
+    city: editMode ? (addressData?.city || '') : '',
+    latitude: editMode ? (addressData?.latitude || '') : '',
+    longitude: editMode ? (addressData?.longitude || '') : '',
+    deliveryInstructions: editMode ? (addressData?.delivery_instructions || '') : '',
+    pincode: editMode ? (addressData?.pincode || '') : '',
+  });
+  
+  // Form validation state
+  const [formErrors, setFormErrors] = useState({});
+
+  const handlePincodeChange = async (pincode) => {
+    setNewAddress(prev => ({ ...prev, pincode }));
+    
+    if (pincode.length === 6) {
+      setIsPincodeLoading(true);
+      try {
+        const cityState = await LocationService.getCityStateFromPincode(pincode);
+        setNewAddress(prev => ({
+          ...prev,
+          city: cityState.city,
+          state: cityState.state,
+        }));
+      } catch (error) {
+        Alert.alert('Invalid Pincode', 'Please enter a valid 6-digit pincode.');
+        setNewAddress(prev => ({ ...prev, city: '', state: '' }));
+      } finally {
+        setIsPincodeLoading(false);
+      }
+    }
+  };
+
+  const autofillFromCurrentLocation = async () => {
+    setIsUpdatingLocation(true);
+    try {
+      const location = await LocationService.updateLocation();
+      setNewAddress(prev => ({
+        ...prev,
+        latitude: String(location.latitude ?? ''),
+        longitude: String(location.longitude ?? ''),
+        pincode: location.postalCode || prev.pincode,
+        city: location.city || prev.city,
+        state: location.state || prev.state,
+        addressline1: prev.addressline1 || location.street || '',
+      }));
+      // Clear errors if now present
+      setFormErrors(prev => ({
+        ...prev,
+        pincode: null,
+        city: null,
+        state: null,
+      }));
+    } catch (error) {
+      Alert.alert('Location Error', 'Unable to get current location. Please check permissions.');
+    } finally {
+      setIsUpdatingLocation(false);
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!newAddress.addressline1.trim()) {
+      errors.addressline1 = 'Floor/Street is required';
+    }
+    if (!newAddress.pincode.trim()) {
+      errors.pincode = 'Pincode is required';
+    }
+    if (!newAddress.city.trim()) {
+      errors.city = 'City is required';
+    }
+    if (!newAddress.state.trim()) {
+      errors.state = 'State is required';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleAddAddress = async () => {
+    if (!validateForm()) {
+      Alert.alert('Missing Information', 'Please fill in all required fields marked with *.');
+      return;
+    }
+
+    setIsAddingAddress(true);
+    try {
+      const addressData = {
+        addressline1: newAddress.addressline1,
+        addressline2: newAddress.addressline2,
+        area: newAddress.area,
+        state: newAddress.state,
+        country: newAddress.country,
+        city: newAddress.city,
+        latitude: newAddress.latitude || "0",
+        longitude: newAddress.longitude || "0",
+        deliveryInstructions: newAddress.deliveryInstructions,
+        pincode: newAddress.pincode,
+      };
+
+      if (editMode) {
+        await updateAddress(addressData.id, addressData);
+        Alert.alert('Success', 'Address updated successfully!', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        await LocationService.saveAddress(addressData);
+        Alert.alert('Success', 'Address added successfully!', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      }
+      
+      // Reset form
+      setNewAddress({
+        addressline1: '',
+        addressline2: '',
+        area: '',
+        state: '',
+        country: 'india',
+        city: '',
+        latitude: '',
+        longitude: '',
+        deliveryInstructions: '',
+        pincode: '',
+      });
+      setFormErrors({});
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save address. Please try again.');
+    } finally {
+      setIsAddingAddress(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{editMode ? 'Edit Address' : 'Add New Address'}</Text>
+        <View style={styles.placeholder} />
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Current Location Button */}
+        <TouchableOpacity
+          style={styles.currentLocationButton}
+          onPress={autofillFromCurrentLocation}
+          disabled={isUpdatingLocation}
+        >
+          {isUpdatingLocation ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Ionicons name="navigate" size={20} color={colors.primary} />
+          )}
+          <Text style={styles.currentLocationText}>
+            {isUpdatingLocation ? 'Detecting your location...' : '📍 Use my current location'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Form Fields */}
+        <View style={styles.formContainer}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              Floor/Street <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                formErrors.addressline1 && styles.errorInput
+              ]}
+              placeholder="House/Flat number, Street name"
+              placeholderTextColor="#999"
+              value={newAddress.addressline1}
+              onChangeText={(text) => {
+                setNewAddress(prev => ({ ...prev, addressline1: text }));
+                if (formErrors.addressline1) {
+                  setFormErrors(prev => ({ ...prev, addressline1: null }));
+                }
+              }}
+            />
+            {formErrors.addressline1 && (
+              <Text style={styles.errorText}>{formErrors.addressline1}</Text>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Landmark</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Near hospital, school, mall, etc. (Optional)"
+              placeholderTextColor="#999"
+              value={newAddress.addressline2}
+              onChangeText={(text) => setNewAddress(prev => ({ ...prev, addressline2: text }))}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Area</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Area/Locality"
+              placeholderTextColor="#999"
+              value={newAddress.area}
+              onChangeText={(text) => setNewAddress(prev => ({ ...prev, area: text }))}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              Pincode <Text style={styles.required}>*</Text>
+            </Text>
+            <View style={styles.pincodeContainer}>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  formErrors.pincode && styles.errorInput
+                ]}
+                placeholder="Enter 6-digit pincode"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+                maxLength={6}
+                value={newAddress.pincode}
+                onChangeText={(text) => {
+                  handlePincodeChange(text);
+                  if (formErrors.pincode) {
+                    setFormErrors(prev => ({ ...prev, pincode: null }));
+                  }
+                }}
+              />
+              {isPincodeLoading && (
+                <ActivityIndicator size="small" color={colors.primary} style={styles.pincodeLoader} />
+              )}
+            </View>
+            {formErrors.pincode && (
+              <Text style={styles.errorText}>{formErrors.pincode}</Text>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              City <Text style={styles.required}>*</Text>
+              <Text style={styles.autoFilled}>(Auto-filled from pincode)</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput, 
+                styles.disabledInput,
+                formErrors.city && styles.errorInput
+              ]}
+              placeholder="Auto-filled from pincode"
+              placeholderTextColor="#999"
+              value={newAddress.city}
+              editable={false}
+            />
+            {formErrors.city && (
+              <Text style={styles.errorText}>{formErrors.city}</Text>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              State <Text style={styles.required}>*</Text>
+              <Text style={styles.autoFilled}>(Auto-filled from pincode)</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput, 
+                styles.disabledInput,
+                formErrors.state && styles.errorInput
+              ]}
+              placeholder="Auto-filled from pincode"
+              placeholderTextColor="#999"
+              value={newAddress.state}
+              editable={false}
+            />
+            {formErrors.state && (
+              <Text style={styles.errorText}>{formErrors.state}</Text>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Delivery Instructions</Text>
+            <TextInput
+              style={[styles.textInput, styles.multilineInput]}
+              placeholder="Special delivery instructions (optional)"
+              placeholderTextColor="#999"
+              value={newAddress.deliveryInstructions}
+              onChangeText={(text) => setNewAddress(prev => ({ ...prev, deliveryInstructions: text }))}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleAddAddress}
+            disabled={isAddingAddress}
+          >
+            {isAddingAddress ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+                  <Text style={styles.addButtonText}>{editMode ? 'Update Address' : 'Add Address'}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  placeholder: {
+    width: 40,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  currentLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FF',
+    marginTop: 20,
+    marginBottom: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#E8F0FF',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  currentLocationText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4A5568',
+    marginLeft: 12,
+  },
+  formContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 10,
+  },
+  required: {
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  autoFilled: {
+    fontSize: 12,
+    color: colors.textLight,
+    fontWeight: 'normal',
+  },
+  errorInput: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  textInput: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    color: colors.text,
+  },
+  disabledInput: {
+    backgroundColor: '#F0F0F0',
+    color: colors.textLight,
+  },
+  multilineInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  pincodeContainer: {
+    position: 'relative',
+  },
+  pincodeLoader: {
+    position: 'absolute',
+    right: 16,
+    top: 12,
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  addButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.textWhite,
+    letterSpacing: 0.5,
+  },
+});
