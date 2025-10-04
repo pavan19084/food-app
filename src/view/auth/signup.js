@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Image,
   ScrollView,
   TouchableWithoutFeedback,
@@ -20,17 +19,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 import { colors } from "../../constants/colors";
+import { useAlert } from "../../hooks/useAlert";
+import CustomAlert from "../../components/CustomAlert";
 
 export default function SignUp() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // 👈 eye toggle
+  const [showPassword, setShowPassword] = useState(false);
+
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
+  const alert = useAlert();
 
   const next = route?.params?.next;
   const nextParams = route?.params?.nextParams;
@@ -40,11 +43,20 @@ export default function SignUp() {
 
   const signUpWithEmail = async () => {
     if (!validateEmail(email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      alert.show({
+        title: "Invalid Email",
+        message: "Please enter a valid email address.",
+        buttons: [{ text: "OK" }],
+      });
       return;
     }
+
     if (!username?.trim() || !phone?.trim() || !password) {
-      Alert.alert("Missing Fields", "Username, phone and password are required.");
+      alert.show({
+        title: "Missing Fields",
+        message: "Username, phone, and password are required.",
+        buttons: [{ text: "OK" }],
+      });
       return;
     }
 
@@ -55,11 +67,15 @@ export default function SignUp() {
         phone: phone.trim(),
         password,
       });
-      // OTP sent; go to Verify OTP screen (preserve next)
+
       navigation.navigate("VerifyOtp", { email: email.trim(), next, nextParams });
     } catch (error) {
-      console.log("Error in signing up: ", error?.message);
-      Alert.alert("Sign Up Error", error?.response?.data?.msg || error.message);
+      console.log("Error in signing up:", error?.message);
+      alert.show({
+        title: "Sign Up Error",
+        message: error?.response?.data?.msg || error.message || "An error occurred. Please try again.",
+        buttons: [{ text: "OK" }],
+      });
     }
   };
 
@@ -90,6 +106,7 @@ export default function SignUp() {
                   justifyContent: "center",
                 }}
               >
+                {/* Logo + Title */}
                 <View style={{ alignItems: "center", marginBottom: 48 }}>
                   <View
                     style={{
@@ -124,37 +141,19 @@ export default function SignUp() {
                   </Text>
                 </View>
 
+                {/* Form Fields */}
                 <View style={{ marginBottom: 24 }}>
                   <TextInput
-                    style={{
-                      height: 56,
-                      borderRadius: 16,
-                      backgroundColor: "#fff",
-                      paddingHorizontal: 20,
-                      fontSize: 16,
-                      color: colors.text,
-                      borderWidth: 1,
-                      borderColor: "#ccc",
-                      marginBottom: 16,
-                    }}
+                    style={inputStyle}
                     placeholder="Username"
                     placeholderTextColor="#999"
                     value={username}
                     onChangeText={setUsername}
                     returnKeyType="next"
                   />
+
                   <TextInput
-                    style={{
-                      height: 56,
-                      borderRadius: 16,
-                      backgroundColor: "#fff",
-                      paddingHorizontal: 20,
-                      fontSize: 16,
-                      color: colors.text,
-                      borderWidth: 1,
-                      borderColor: "#ccc",
-                      marginBottom: 16,
-                    }}
+                    style={inputStyle}
                     placeholder="Phone"
                     placeholderTextColor="#999"
                     keyboardType="phone-pad"
@@ -162,18 +161,9 @@ export default function SignUp() {
                     onChangeText={setPhone}
                     returnKeyType="next"
                   />
+
                   <TextInput
-                    style={{
-                      height: 56,
-                      borderRadius: 16,
-                      backgroundColor: "#fff",
-                      paddingHorizontal: 20,
-                      fontSize: 16,
-                      color: colors.text,
-                      borderWidth: 1,
-                      borderColor: "#ccc",
-                      marginBottom: 16,
-                    }}
+                    style={inputStyle}
                     placeholder="Email"
                     placeholderTextColor="#999"
                     keyboardType="email-address"
@@ -183,20 +173,10 @@ export default function SignUp() {
                     returnKeyType="next"
                   />
 
-                  {/* Password with eye toggle */}
+                  {/* Password with Eye Toggle */}
                   <View style={{ position: "relative" }}>
                     <TextInput
-                      style={{
-                        height: 56,
-                        borderRadius: 16,
-                        backgroundColor: "#fff",
-                        paddingHorizontal: 20,
-                        fontSize: 16,
-                        color: "#000",
-                        borderWidth: 1,
-                        borderColor: "#ccc",
-                        paddingRight: 48, // space for eye
-                      }}
+                      style={inputStyle}
                       placeholder="Password"
                       placeholderTextColor="#999"
                       secureTextEntry={!showPassword}
@@ -211,38 +191,21 @@ export default function SignUp() {
                       accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                       accessibilityRole="button"
                     >
-                      <Ionicons
-                        name={showPassword ? "eye-off" : "eye"}
-                        size={22}
-                        color="#666"
-                      />
+                      <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color="#666" />
                     </TouchableOpacity>
                   </View>
                 </View>
 
+                {/* Submit Button */}
                 <TouchableOpacity
                   onPress={signUpWithEmail}
                   activeOpacity={0.8}
-                  style={{
-                    height: 56,
-                    borderRadius: 16,
-                    backgroundColor: "#000",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                  style={buttonStyle}
                 >
-                  <Text
-                    style={{
-                      color: "#fff",
-                      fontSize: 18,
-                      fontWeight: "700",
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    Create Account
-                  </Text>
+                  <Text style={buttonTextStyle}>Create Account</Text>
                 </TouchableOpacity>
 
+                {/* Redirect to Login */}
                 <View style={{ marginTop: 24, alignItems: "center" }}>
                   <Text style={{ color: colors.textWhite, fontSize: 16, opacity: 0.9 }}>
                     Already have an account?
@@ -268,6 +231,44 @@ export default function SignUp() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </LinearGradient>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onClose={alert.hide}
+      />
     </View>
   );
 }
+
+// 🎨 Styles extracted for readability
+const inputStyle = {
+  height: 56,
+  borderRadius: 16,
+  backgroundColor: "#fff",
+  paddingHorizontal: 20,
+  fontSize: 16,
+  color: "#000",
+  borderWidth: 1,
+  borderColor: "#ccc",
+  marginBottom: 16,
+  paddingRight: 48,
+};
+
+const buttonStyle = {
+  height: 56,
+  borderRadius: 16,
+  backgroundColor: "#000",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const buttonTextStyle = {
+  color: "#fff",
+  fontSize: 18,
+  fontWeight: "700",
+  letterSpacing: 0.5,
+};

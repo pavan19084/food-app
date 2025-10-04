@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,11 +19,14 @@ import { colors } from '../../constants/colors';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+import { useAlert } from '../../hooks/useAlert';
+import CustomAlert from '../../components/CustomAlert';
 
 export default function VerifyOtp() {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const alert = useAlert();
 
   const email = route?.params?.email || '';
   const next = route?.params?.next;
@@ -35,25 +37,17 @@ export default function VerifyOtp() {
   const otpRefs = useRef([]);
 
   useEffect(() => {
-    // Focus first OTP box on mount
-    if (otpRefs.current[0]) {
-      otpRefs.current[0].focus();
-    }
+    if (otpRefs.current[0]) otpRefs.current[0].focus();
   }, []);
 
   const handleOtpChange = (value, index) => {
     const newOtpValues = [...otpValues];
     newOtpValues[index] = value;
     setOtpValues(newOtpValues);
-
-    // Auto-focus next box if value entered
-    if (value && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
+    if (value && index < 5) otpRefs.current[index + 1]?.focus();
   };
 
   const handleOtpKeyPress = (key, index) => {
-    // Handle backspace
     if (key === "Backspace" && !otpValues[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
     }
@@ -62,48 +56,68 @@ export default function VerifyOtp() {
   const handleOtpPaste = (text) => {
     const pastedOtp = text.replace(/\D/g, "").slice(0, 6);
     const newOtpValues = ['', '', '', '', '', ''];
-    
     for (let i = 0; i < pastedOtp.length; i++) {
       newOtpValues[i] = pastedOtp[i];
     }
-    
     setOtpValues(newOtpValues);
-    
-    // Focus the next empty box or the last box
     const nextIndex = Math.min(pastedOtp.length, 5);
     otpRefs.current[nextIndex]?.focus();
   };
 
-  const getOtpString = () => {
-    return otpValues.join('');
-  };
+  const getOtpString = () => otpValues.join('');
 
   const onVerify = async () => {
     const otpString = getOtpString();
-    
+
     if (!otpString || otpString.length !== 6) {
-      Alert.alert('Invalid OTP', 'Please enter the complete 6-digit verification code.');
+      alert.show({
+        title: "Invalid OTP",
+        message: "Please enter the complete 6-digit verification code.",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
       return;
     }
 
     try {
       await confirmOtp({ email, otp: otpString });
-      Alert.alert('Verified', 'Your account is verified. Please log in.');
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login', params: { next, nextParams } }],
+      alert.show({
+        title: "Verified",
+        message: "Your account is verified. Please log in.",
+        buttons: [
+          {
+            text: "OK",
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Login", params: { next, nextParams } }],
+              });
+            },
+          },
+        ],
       });
     } catch (e) {
-      Alert.alert('OTP Error', e?.response?.data?.msg || 'Invalid OTP');
+      alert.show({
+        title: "OTP Error",
+        message: e?.response?.data?.msg || "Invalid OTP",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
     }
   };
 
   const onResend = async () => {
     try {
-      await sendOtp({ email, reason: 'resend' });
-      Alert.alert('OTP Sent', 'Please check your inbox/SMS for the new code.');
+      await sendOtp({ email, reason: "resend" });
+      alert.show({
+        title: "OTP Sent",
+        message: "Please check your inbox/SMS for the new code.",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
     } catch (e) {
-      Alert.alert('Error', e?.response?.data?.msg || 'Failed to resend OTP');
+      alert.show({
+        title: "Error",
+        message: e?.response?.data?.msg || "Failed to resend OTP",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
     }
   };
 
@@ -114,8 +128,8 @@ export default function VerifyOtp() {
         <SafeAreaView style={{ flex: 1 }}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 16 : 0}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 16 : 0}
           >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
               <ScrollView
@@ -124,7 +138,7 @@ export default function VerifyOtp() {
                   paddingHorizontal: 32,
                   paddingTop: 40,
                   paddingBottom: insets.bottom + 24,
-                  justifyContent: 'center',
+                  justifyContent: "center",
                 }}
                 keyboardShouldPersistTaps="handled"
               >
@@ -174,12 +188,13 @@ export default function VerifyOtp() {
                 </View>
 
                 <View style={{ marginBottom: 24 }}>
-                  {/* OTP Boxes */}
-                  <View style={{ 
-                    flexDirection: "row", 
-                    justifyContent: "space-between", 
-                    marginBottom: 16 
-                  }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      marginBottom: 16,
+                    }}
+                  >
                     {otpValues.map((value, index) => (
                       <TextInput
                         key={index}
@@ -202,9 +217,7 @@ export default function VerifyOtp() {
                         onChangeText={(text) => handleOtpChange(text, index)}
                         onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, index)}
                         onTextInput={(e) => {
-                          if (e.nativeEvent.text.length > 1) {
-                            handleOtpPaste(e.nativeEvent.text);
-                          }
+                          if (e.nativeEvent.text.length > 1) handleOtpPaste(e.nativeEvent.text);
                         }}
                         selectTextOnFocus
                       />
@@ -235,8 +248,8 @@ export default function VerifyOtp() {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  onPress={onResend} 
+                <TouchableOpacity
+                  onPress={onResend}
                   style={{ marginTop: 24, alignItems: "center" }}
                 >
                   <Text
@@ -255,6 +268,15 @@ export default function VerifyOtp() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </LinearGradient>
+
+      {/* ✅ Custom Alert at bottom */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onClose={alert.hide}
+      />
     </View>
   );
 }

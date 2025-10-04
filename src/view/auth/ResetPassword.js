@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Image,
   ScrollView,
   TouchableWithoutFeedback,
@@ -20,6 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { colors } from "../../constants/colors";
 import { Ionicons } from "@expo/vector-icons";
+import { useAlert } from "../../hooks/useAlert";
+import CustomAlert from "../../components/CustomAlert";
 
 export default function ResetPassword() {
   const [otpValues, setOtpValues] = useState(["", "", "", "", "", ""]);
@@ -33,11 +34,11 @@ export default function ResetPassword() {
   const insets = useSafeAreaInsets();
   const { resetPassword } = useAuth();
   const otpRefs = useRef([]);
+  const alert = useAlert();
 
   const email = route?.params?.email;
 
   useEffect(() => {
-    // Focus first OTP box on mount
     if (otpRefs.current[0]) {
       otpRefs.current[0].focus();
     }
@@ -47,15 +48,12 @@ export default function ResetPassword() {
     const newOtpValues = [...otpValues];
     newOtpValues[index] = value;
     setOtpValues(newOtpValues);
-
-    // Auto-focus next box if value entered
     if (value && index < 5) {
       otpRefs.current[index + 1]?.focus();
     }
   };
 
   const handleOtpKeyPress = (key, index) => {
-    // Handle backspace
     if (key === "Backspace" && !otpValues[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
     }
@@ -64,42 +62,52 @@ export default function ResetPassword() {
   const handleOtpPaste = (text) => {
     const pastedOtp = text.replace(/\D/g, "").slice(0, 6);
     const newOtpValues = ["", "", "", "", "", ""];
-    
     for (let i = 0; i < pastedOtp.length; i++) {
       newOtpValues[i] = pastedOtp[i];
     }
-    
     setOtpValues(newOtpValues);
-    
-    // Focus the next empty box or the last box
     const nextIndex = Math.min(pastedOtp.length, 5);
     otpRefs.current[nextIndex]?.focus();
   };
 
-  const getOtpString = () => {
-    return otpValues.join("");
-  };
+  const getOtpString = () => otpValues.join("");
 
   const handleResetPassword = async () => {
     const otpString = getOtpString();
-    
+
     if (!otpString || otpString.length !== 6) {
-      Alert.alert("Missing OTP", "Please enter the complete 6-digit verification code.");
+      alert.show({
+        title: "Missing OTP",
+        message: "Please enter the complete 6-digit verification code.",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
       return;
     }
 
     if (!newPassword) {
-      Alert.alert("Missing Password", "Please enter a new password.");
+      alert.show({
+        title: "Missing Password",
+        message: "Please enter a new password.",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert("Weak Password", "Password must be at least 6 characters long.");
+      alert.show({
+        title: "Weak Password",
+        message: "Password must be at least 6 characters long.",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Password Mismatch", "New password and confirm password do not match.");
+      alert.show({
+        title: "Password Mismatch",
+        message: "New password and confirm password do not match.",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
       return;
     }
 
@@ -110,23 +118,26 @@ export default function ResetPassword() {
         otp: otpString,
         newPassword,
       });
-      
-      Alert.alert(
-        "Password Reset Successful",
-        "Your password has been updated successfully.",
-        [
+
+      alert.show({
+        title: "Password Reset Successful",
+        message: "Your password has been updated successfully.",
+        buttons: [
           {
             text: "OK",
             onPress: () => navigation.navigate("Login"),
           },
-        ]
-      );
+        ],
+      });
     } catch (error) {
       console.log("Error resetting password: ", error?.message);
-      Alert.alert(
-        "Reset Failed",
-        error?.response?.data?.msg || "Failed to reset password. Please try again."
-      );
+      alert.show({
+        title: "Reset Failed",
+        message:
+          error?.response?.data?.msg ||
+          "Failed to reset password. Please try again.",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
     } finally {
       setLoading(false);
     }
@@ -204,13 +215,15 @@ export default function ResetPassword() {
                   </Text>
                 </View>
 
+                {/* OTP Boxes */}
                 <View style={{ marginBottom: 24 }}>
-                  {/* OTP Boxes */}
-                  <View style={{ 
-                    flexDirection: "row", 
-                    justifyContent: "space-between", 
-                    marginBottom: 16 
-                  }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      marginBottom: 16,
+                    }}
+                  >
                     {otpValues.map((value, index) => (
                       <TextInput
                         key={index}
@@ -231,7 +244,9 @@ export default function ResetPassword() {
                         maxLength={1}
                         value={value}
                         onChangeText={(text) => handleOtpChange(text, index)}
-                        onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, index)}
+                        onKeyPress={({ nativeEvent }) =>
+                          handleOtpKeyPress(nativeEvent.key, index)
+                        }
                         onTextInput={(e) => {
                           if (e.nativeEvent.text.length > 1) {
                             handleOtpPaste(e.nativeEvent.text);
@@ -308,7 +323,9 @@ export default function ResetPassword() {
                         right: 16,
                         top: 14,
                       }}
-                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onPress={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                     >
                       <Ionicons
                         name={showConfirmPassword ? "eye-off" : "eye"}
@@ -344,7 +361,13 @@ export default function ResetPassword() {
                 </TouchableOpacity>
 
                 <View style={{ marginTop: 24, alignItems: "center" }}>
-                  <Text style={{ color: colors.textWhite, fontSize: 16, opacity: 0.9 }}>
+                  <Text
+                    style={{
+                      color: colors.textWhite,
+                      fontSize: 16,
+                      opacity: 0.9,
+                    }}
+                  >
                     Didn't receive the code?
                   </Text>
                   <TouchableOpacity
@@ -368,6 +391,15 @@ export default function ResetPassword() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </LinearGradient>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onClose={alert.hide}
+      />
     </View>
   );
 }

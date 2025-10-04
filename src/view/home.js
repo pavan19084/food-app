@@ -9,14 +9,16 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
-  SafeAreaView,
-  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useOrder } from '../context/OrderContext';
 import { LocationService } from '../utils/locationService';
+import { getAllRestaurants } from '../api/restaurant';
+import { useAlert } from '../hooks/useAlert';
+import CustomAlert from '../components/CustomAlert';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const CATEGORY_ITEMS = [
   { id: 'healthy',  label: 'Healthy',  img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900&h=500&fit=crop&auto=format' },
@@ -27,149 +29,6 @@ const CATEGORY_ITEMS = [
   { id: 'burger',   label: 'Burger',   img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=120&h=120&fit=crop&auto=format' },
   { id: 'cake',     label: 'Cake',     img: 'https://assets.winni.in/product/primary/2023/3/83223.jpeg?dpr=1&w=500' },
   { id: 'shawarma', label: 'Shawarma', img: 'https://www.munatycooking.com/wp-content/uploads/2023/12/chicken-shawarma-image-feature-2023.jpg' },
-];
-
-const RESTAURANTS = [
-  {
-    id: 'r1',
-    cover: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&h=500&fit=crop&auto=format',
-    title: 'Eat Healthy',
-    subtitle: 'Healthy food',
-    rating: '4.3',
-    priceForTwo: '40 euro',
-    badges: ['Healthy', 'DELIVERY'],
-    envNote: 'Always eat healthy, be healthy',
-    onTap: 'Restaurant',
-    category: 'healthy',
-    deliveryAvailable: true,
-    collectionAvailable: true,
-  },
-  {
-    id: 'r2',
-    cover: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=900&h=500&fit=crop&auto=format',
-    title: 'Amul',
-    subtitle: 'Desserts, Ice Cream, Beverages',
-    rating: '4.2',
-    priceForTwo: '15 euro',
-    badges: ['Healthy', 'DELIVERY'],
-    envNote: 'Amul, taste of India',
-    onTap: 'Restaurant',
-    category: 'cake',
-    deliveryAvailable: false,
-    collectionAvailable: true,
-  },
-  {
-    id: 'r3',
-    cover: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=900&h=500&fit=crop&auto=format',
-    title: 'Pizza Palace',
-    subtitle: 'Italian, Pizza, Pasta',
-    rating: '4.5',
-    priceForTwo: '25 euro',
-    badges: ['Popular', 'DELIVERY'],
-    envNote: 'Authentic Italian pizza made fresh daily',
-    onTap: 'Restaurant',
-    category: 'pizza',
-    deliveryAvailable: true,
-    collectionAvailable: true,
-  },
-  {
-    id: 'r4',
-    cover: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=900&h=500&fit=crop&auto=format',
-    title: 'Burger House',
-    subtitle: 'American, Burgers, Fast Food',
-    rating: '4.1',
-    priceForTwo: '20 euro',
-    badges: ['Popular', 'DELIVERY'],
-    envNote: 'Juicy burgers with fresh ingredients',
-    onTap: 'Restaurant',
-    category: 'burger',
-    deliveryAvailable: true,
-    collectionAvailable: true,
-  },
-  {
-    id: 'r5',
-    cover: 'https://images.unsplash.com/photo-1563379091339-03246963d6a9?w=900&h=500&fit=crop&auto=format',
-    title: 'Biryani Corner',
-    subtitle: 'Indian, Biryani, Rice',
-    rating: '4.4',
-    priceForTwo: '18 euro',
-    badges: ['Popular', 'DELIVERY'],
-    envNote: 'Authentic Hyderabadi biryani',
-    onTap: 'Restaurant',
-    category: 'biryani',
-    deliveryAvailable: true,
-    collectionAvailable: false,
-  },
-  {
-    id: 'r6',
-    cover: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=900&h=500&fit=crop&auto=format',
-    title: 'Chicken Delight',
-    subtitle: 'Chicken, Grill, BBQ',
-    rating: '4.0',
-    priceForTwo: '22 euro',
-    badges: ['Popular', 'DELIVERY'],
-    envNote: 'Grilled chicken with special marinades',
-    onTap: 'Restaurant',
-    category: 'chicken',
-    deliveryAvailable: false,
-    collectionAvailable: true,
-  },
-  {
-    id: 'r7',
-    cover: 'https://images.unsplash.com/photo-1563379091339-03246963d6a9?w=900&h=500&fit=crop&auto=format',
-    title: 'Haleem House',
-    subtitle: 'Middle Eastern, Haleem, Traditional',
-    rating: '4.6',
-    priceForTwo: '16 euro',
-    badges: ['Popular', 'DELIVERY'],
-    envNote: 'Traditional haleem with authentic spices',
-    onTap: 'Restaurant',
-    category: 'haleem',
-    deliveryAvailable: true,
-    collectionAvailable: true,
-  },
-  {
-    id: 'r8',
-    cover: 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=900&h=500&fit=crop&auto=format',
-    title: 'Shawarma Express',
-    subtitle: 'Middle Eastern, Shawarma, Wraps',
-    rating: '4.3',
-    priceForTwo: '12 euro',
-    badges: ['Popular', 'DELIVERY'],
-    envNote: 'Fresh shawarma wraps with homemade sauces',
-    onTap: 'Restaurant',
-    category: 'shawarma',
-    deliveryAvailable: true,
-    collectionAvailable: true,
-  },
-  {
-    id: 'r9',
-    cover: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&h=500&fit=crop&auto=format',
-    title: 'Green Garden',
-    subtitle: 'Vegetarian, Healthy, Organic',
-    rating: '4.7',
-    priceForTwo: '28 euro',
-    badges: ['Healthy', 'DELIVERY'],
-    envNote: '100% organic vegetarian cuisine',
-    onTap: 'Restaurant',
-    category: 'healthy',
-    deliveryAvailable: true,
-    collectionAvailable: true,
-  },
-  {
-    id: 'r10',
-    cover: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=900&h=500&fit=crop&auto=format',
-    title: 'Sweet Treats',
-    subtitle: 'Desserts, Cakes, Pastries',
-    rating: '4.2',
-    priceForTwo: '14 euro',
-    badges: ['Popular', 'DELIVERY'],
-    envNote: 'Homemade cakes and pastries',
-    onTap: 'Restaurant',
-    category: 'cake',
-    deliveryAvailable: true,
-    collectionAvailable: true,
-  },
 ];
 
 const FilterChip = ({ label, filled, onPress }) => (
@@ -216,10 +75,8 @@ const OrderStatusBar = ({ order, onPress, onDismiss }) => {
   useEffect(() => {
     if (!order) return;
 
-    // Update remaining time immediately
     setRemainingTime(order.getFormattedRemainingTime());
 
-    // Update every minute
     const timer = setInterval(() => {
       setRemainingTime(order.getFormattedRemainingTime());
     }, 60000);
@@ -270,6 +127,8 @@ const RestaurantCard = ({ item }) => {
         subtitle: item.subtitle,
         cover: item.cover,
         envNote: item.envNote,
+        restaurantId: item.restaurantData?.restaurantId,
+        restaurantData: item.restaurantData,
       });
     }
   };
@@ -297,7 +156,6 @@ const RestaurantCard = ({ item }) => {
           ))}
         </View>
 
-        {/* Delivery/Collection Indicators */}
         <View style={styles.deliveryCollectionRow}>
           {item.deliveryAvailable && (
             <View style={styles.deliveryIndicator}>
@@ -323,14 +181,20 @@ export default function Home() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { activeOrder, showOrderNotification, dismissNotification } = useOrder();
+  const alert = useAlert();
+
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [restaurants, setRestaurants] = useState([]);
+  const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedFilter, setSelectedFilter] = useState('Healthy');
+  const [searchQuery, setSearchQuery] = useState('');
+
   const initials = (user?.name || user?.username || 'U').trim().charAt(0).toUpperCase()
 
   useEffect(() => {
     loadLocation();
+    loadRestaurants();
   }, []);
 
   const loadLocation = async () => {
@@ -340,19 +204,47 @@ export default function Home() {
       setCurrentLocation(location);
     } catch (error) {
       console.error('Error loading location:', error);
-      Alert.alert(
-        'Location Error',
-        'Unable to load location. Please check your location permissions.',
-        [{ text: 'OK' }]
-      );
+      alert.show({
+        title: 'Location Error',
+        message: 'Unable to load location. Please check your location permissions.',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
     } finally {
       setIsLoadingLocation(false);
     }
   };
 
+  const loadRestaurants = async () => {
+    try {
+      setIsLoadingRestaurants(true);
+      const result = await getAllRestaurants();
+      
+      if (result.success) {
+        const restaurantCards = result.data.map(restaurant => restaurant.toCardData());
+        setRestaurants(restaurantCards);
+      } else {
+        alert.show({
+          title: 'Error',
+          message: result.message || 'Failed to load restaurants',
+          buttons: [{ text: 'OK', onPress: () => {} }]
+        });
+        setRestaurants([]);
+      }
+    } catch (error) {
+      console.error('Error loading restaurants:', error);
+      alert.show({
+        title: 'Error',
+        message: 'Failed to load restaurants. Please try again.',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
+      setRestaurants([]);
+    } finally {
+      setIsLoadingRestaurants(false);
+    }
+  };
+
   const handleLocationSelect = (location) => {
     setCurrentLocation(location);
-    // Save the new location
     LocationService.saveLocation(location);
   };
 
@@ -362,11 +254,11 @@ export default function Home() {
       const location = await LocationService.updateLocation();
       setCurrentLocation(location);
     } catch (error) {
-      Alert.alert(
-        'Location Error',
-        'Unable to refresh location. Please check your location permissions.',
-        [{ text: 'OK' }]
-      );
+      alert.show({
+        title: 'Location Error',
+        message: 'Unable to refresh location. Please check your location permissions.',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
     } finally {
       setIsLoadingLocation(false);
     }
@@ -374,10 +266,6 @@ export default function Home() {
 
   const handleCategoryPress = (categoryId) => {
     setSelectedCategory(selectedCategory === categoryId ? null : categoryId);
-  };
-
-  const handleFilterPress = (filter) => {
-    setSelectedFilter(selectedFilter === filter ? null : filter);
   };
 
   const handleNotificationPress = () => {
@@ -391,21 +279,17 @@ export default function Home() {
   };
 
   const getFilteredRestaurants = () => {
-    let filtered = RESTAURANTS;
+    let filtered = restaurants;
 
-    // Filter by category
     if (selectedCategory) {
       filtered = filtered.filter(restaurant => restaurant.category === selectedCategory);
     }
 
-    // Filter by filter chip
-    if (selectedFilter) {
-      if (selectedFilter === 'Healthy') {
-        filtered = filtered.filter(restaurant => restaurant.badges.includes('Healthy'));
-      } else if (selectedFilter === 'Popular') {
-        filtered = filtered.filter(restaurant => restaurant.badges.includes('Popular'));
-      }
-      // Add more filter logic as needed
+    if (searchQuery.trim() !== '') {
+      filtered = filtered.filter(restaurant => 
+        restaurant.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (restaurant.subtitle && restaurant.subtitle.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
     }
 
     return filtered;
@@ -417,7 +301,6 @@ export default function Home() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF8F5" />
 
-      {/* Order Status Bar */}
       {showOrderNotification && (
         <OrderStatusBar
           order={activeOrder}
@@ -426,7 +309,6 @@ export default function Home() {
         />
       )}
 
-      {/* Location row */}
       <View style={styles.locationRow}>
         <TouchableOpacity 
           style={styles.locationInfoContainer}
@@ -471,12 +353,13 @@ export default function Home() {
         </TouchableOpacity>
       </View>
 
-      {/* Top search + profile avatar */}
       <View style={styles.searchRow}>
         <TextInput
           placeholder="Restaurant name, cuisine, or a dish..."
           placeholderTextColor="#999"
           style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
         />
         <TouchableOpacity
           style={styles.profileBtn}
@@ -491,36 +374,6 @@ export default function Home() {
         contentContainerStyle={{ paddingBottom: showOrderNotification ? 80 : 40 }} 
         showsVerticalScrollIndicator={false}
       >
-        {/* Filter chips in one row */}
-        <View style={styles.chipsRow}>
-          <FilterChip 
-            label="Healthy" 
-            filled={selectedFilter === 'Healthy'} 
-            onPress={() => handleFilterPress('Healthy')}
-          />
-          <FilterChip 
-            label="PRO" 
-            filled={selectedFilter === 'PRO'} 
-            onPress={() => handleFilterPress('PRO')}
-          />
-          <FilterChip 
-            label="Cuisines" 
-            filled={selectedFilter === 'Cuisines'} 
-            onPress={() => handleFilterPress('Cuisines')}
-          />
-          <FilterChip 
-            label="Rating" 
-            filled={selectedFilter === 'Rating'} 
-            onPress={() => handleFilterPress('Rating')}
-          />
-          <FilterChip 
-            label="Popular" 
-            filled={selectedFilter === 'Popular'} 
-            onPress={() => handleFilterPress('Popular')}
-          />
-        </View>
-
-        {/* Categories */}
         <Text style={styles.h2}>Eat what makes you happy</Text>
         <View style={styles.categoriesGrid}>
           {CATEGORY_ITEMS.map(c => (
@@ -533,22 +386,35 @@ export default function Home() {
           ))}
         </View>
 
-        {/* Restaurants */}
         <Text style={styles.h2}>
-          {filteredRestaurants.length} restaurants around you
+          {isLoadingRestaurants ? 'Loading restaurants...' : `${filteredRestaurants.length} restaurants around you`}
           {selectedCategory && ` - ${CATEGORY_ITEMS.find(c => c.id === selectedCategory)?.label}`}
-          {selectedFilter && ` - ${selectedFilter}`}
         </Text>
-        <FlatList
-          data={filteredRestaurants}
-          keyExtractor={it => it.id}
-          renderItem={({ item }) => <RestaurantCard item={item} />}
-          scrollEnabled={false}
-          ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
-          contentContainerStyle={{ paddingBottom: 12 }}
-        />
+        
+        {isLoadingRestaurants ? (
+          <LoadingSpinner 
+            text="Loading restaurants..." 
+            containerStyle={styles.loadingContainer}
+          />
+        ) : (
+          <FlatList
+            data={filteredRestaurants}
+            keyExtractor={it => it.id}
+            renderItem={({ item }) => <RestaurantCard item={item} />}
+            scrollEnabled={false}
+            ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+            contentContainerStyle={{ paddingBottom: 12 }}
+          />
+        )}
       </ScrollView>
 
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onClose={alert.hide}
+      />
     </View>
   );
 }
@@ -561,8 +427,6 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     backgroundColor: '#FFF8F5',
   },
-
-  /* LOCATION ROW */
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -601,8 +465,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FF6B6B',
   },
-
-  /* SEARCH + PROFILE */
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -621,8 +483,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     color: '#333',
   },
-
-  /* Profile button */
   profileBtn: {
     width: 44,
     height: 44,
@@ -638,15 +498,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
   },
-
-  /* CHIPS, LISTS, CARDS */
-  chipsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    marginBottom: 12,
-  },
   chip: {
     borderRadius: 20,
     paddingHorizontal: 16,
@@ -657,7 +508,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-
   h2: {
     fontSize: 20,
     fontWeight: '700',
@@ -666,7 +516,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#333',
   },
-
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -690,201 +539,92 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#666',
   },
-
   card: {
     marginHorizontal: 16,
     borderRadius: 16,
-    borderWidth: 1,
     backgroundColor: '#FFFFFF',
-    borderColor: '#E0E0E0',
-    marginBottom: 16,
+    overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
-    height: 180,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    height: 160,
   },
   cardBody: {
-    padding: 16,
-    gap: 8,
+    padding: 12,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#333',
   },
   cardSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
+    marginTop: 2,
     color: '#666',
   },
   metaRow: {
     flexDirection: 'row',
+    marginTop: 6,
     alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
   },
   ratingPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#E0FFE0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  ratingText: { 
+  ratingText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#4CAF50',
+  },
+  dot: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    marginHorizontal: 6,
+    color: '#999',
   },
-  dot: { 
-    marginHorizontal: 2,
-    fontSize: 16,
-    color: '#666',
-  },
-  priceText: { 
+  priceText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
+    color: '#999',
   },
-
   badgeRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 4,
     marginTop: 6,
   },
   badge: {
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: '#FFE0E0',
-    borderColor: '#FF6B6B',
+    backgroundColor: '#FFEB3B',
+    borderRadius: 4,
+    paddingHorizontal: 4,
   },
-  badgeText: { 
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FF6B6B',
+  badgeText: {
+    fontSize: 10,
+    color: '#333',
   },
-
-  envNote: {
-    marginTop: 6,
-    fontSize: 12,
-    lineHeight: 16,
-    color: '#666',
-  },
-
-  /* Delivery/Collection Indicators */
   deliveryCollectionRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    marginTop: 6,
+    gap: 10,
+    alignItems: 'center',
   },
   deliveryIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E8',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#4CAF50',
+    gap: 4,
   },
-  deliveryText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#4CAF50',
-    marginLeft: 4,
-  },
+  deliveryText: { fontSize: 10, color: '#4CAF50' },
   collectionIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FF9800',
+    gap: 4,
   },
-  collectionText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FF9800',
-    marginLeft: 4,
+  collectionText: { fontSize: 10, color: '#FF9800' },
+  envNote: {
+    marginTop: 6,
+    fontSize: 10,
+    color: '#999',
   },
-
-  /* ORDER STATUS BAR */
-  orderStatusBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
-    zIndex: 1000,
-  },
-  orderStatusContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  orderStatusImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-  },
-  orderStatusText: {
-    flex: 1,
-  },
-  orderStatusTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 2,
-  },
-  orderStatusSubtitle: {
-    fontSize: 12,
-    color: '#666',
-  },
-  orderStatusRight: {
-    alignItems: 'flex-end',
-  },
-  orderStatusCount: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  orderStatusButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  orderStatusButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  orderStatusDismiss: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orderStatusDismissText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-  },
+  loadingContainer: {
+    marginTop: 20,
+  }
 });

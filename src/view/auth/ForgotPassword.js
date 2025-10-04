@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Image,
   ScrollView,
   TouchableWithoutFeedback,
@@ -19,6 +18,8 @@ import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { colors } from "../../constants/colors";
+import { useAlert } from "../../hooks/useAlert";
+import CustomAlert from "../../components/CustomAlert";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -27,34 +28,44 @@ export default function ForgotPassword() {
   const insets = useSafeAreaInsets();
   const { sendForgotPasswordOtp } = useAuth();
 
+  // use custom alert
+  const { show, hide, visible, title, message, buttons } = useAlert();
+
   const validateEmail = (val) =>
     /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(val);
 
   const handleSendOtp = async () => {
     if (!validateEmail(email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      show({
+        title: "Invalid Email",
+        message: "Please enter a valid email address.",
+        buttons: [{ text: "OK", onPress: () => {} }],
+      });
       return;
     }
 
     setLoading(true);
     try {
       await sendForgotPasswordOtp({ email: email.trim() });
-      Alert.alert(
-        "OTP Sent",
-        "Please check your email for the verification code.",
-        [
+      show({
+        title: "OTP Sent",
+        message: "Please check your email for the verification code.",
+        buttons: [
           {
             text: "OK",
-            onPress: () => navigation.navigate("ResetPassword", { email: email.trim() }),
+            onPress: () =>
+              navigation.navigate("ResetPassword", { email: email.trim() }),
           },
-        ]
-      );
+        ],
+      });
     } catch (error) {
       console.log("Error sending OTP: ", error?.message);
-      Alert.alert(
-        "Error",
-        error?.response?.data?.msg || "Failed to send OTP. Please try again."
-      );
+      show({
+        title: "Error",
+        message:
+          error?.response?.data?.msg || "Failed to send OTP. Please try again.",
+        buttons: [{ text: "OK" }],
+      });
     } finally {
       setLoading(false);
     }
@@ -205,6 +216,15 @@ export default function ForgotPassword() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </LinearGradient>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={visible}
+        title={title}
+        message={message}
+        buttons={buttons}
+        onClose={hide}
+      />
     </View>
   );
 }

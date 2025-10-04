@@ -7,17 +7,27 @@ import {
   ScrollView,
   StatusBar,
   SafeAreaView,
-  FlatList,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LocationService } from '../utils/locationService';
 import { colors } from '../constants/colors';
+import CustomAlert from '../components/CustomAlert'; // import your custom alert
 
 export default function SavedAddressesScreen({ navigation }) {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // CustomAlert state
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   useEffect(() => {
     loadSavedAddresses();
@@ -30,26 +40,26 @@ export default function SavedAddressesScreen({ navigation }) {
       setSavedAddresses(addresses);
     } catch (error) {
       console.error('Error loading addresses:', error);
+      showAlert('Error', 'Failed to load saved addresses.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDeleteAddress = async (addressId) => {
-    Alert.alert(
+    showAlert(
       'Delete Address',
       'Are you sure you want to delete this address?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', onPress: () => setAlertVisible(false) },
         {
           text: 'Delete',
-          style: 'destructive',
           onPress: async () => {
             try {
               await LocationService.deleteAddress(addressId);
               await loadSavedAddresses();
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete address.');
+              showAlert('Error', 'Failed to delete address.');
             }
           },
         },
@@ -62,17 +72,15 @@ export default function SavedAddressesScreen({ navigation }) {
       await LocationService.setDefaultAddress(addressId);
       await loadSavedAddresses();
     } catch (error) {
-      Alert.alert('Error', 'Failed to set default address.');
+      showAlert('Error', 'Failed to set default address.');
     }
   };
 
   const handleEditAddress = (address) => {
-    // Navigate to edit address screen (you can implement this later)
-    Alert.alert('Edit Address', 'Edit functionality coming soon!');
+    showAlert('Info', 'Edit functionality coming soon!');
   };
 
   const renderAddressItem = ({ item }) => {
-    // Format the address for display
     const formatAddress = (address) => {
       const parts = [];
       if (address.addressline1) parts.push(address.addressline1);
@@ -88,11 +96,7 @@ export default function SavedAddressesScreen({ navigation }) {
       <View style={styles.addressCard}>
         <View style={styles.addressHeader}>
           <View style={styles.addressTypeIcon}>
-            <Ionicons 
-              name="location" 
-              size={20} 
-              color="#666" 
-            />
+            <Ionicons name="location" size={20} color="#666" />
           </View>
           <View style={styles.addressInfo}>
             <View style={styles.addressTopRow}>
@@ -115,35 +119,35 @@ export default function SavedAddressesScreen({ navigation }) {
             )}
           </View>
         </View>
-      
-      <View style={styles.addressActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleEditAddress(item)}
-        >
-          <Ionicons name="create-outline" size={16} color="#666" />
-          <Text style={styles.actionButtonText}>Edit</Text>
-        </TouchableOpacity>
-        
-        {!item.isDefault && (
+
+        <View style={styles.addressActions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleSetDefault(item.id)}
+            onPress={() => handleEditAddress(item)}
           >
-            <Ionicons name="star-outline" size={16} color="#666" />
-            <Text style={styles.actionButtonText}>Set Default</Text>
+            <Ionicons name="create-outline" size={16} color="#666" />
+            <Text style={styles.actionButtonText}>Edit</Text>
           </TouchableOpacity>
-        )}
-        
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => handleDeleteAddress(item.id)}
-        >
-          <Ionicons name="trash-outline" size={16} color="#F44336" />
-          <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
-        </TouchableOpacity>
+
+          {!item.isDefault && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleSetDefault(item.id)}
+            >
+              <Ionicons name="star-outline" size={16} color="#666" />
+              <Text style={styles.actionButtonText}>Set Default</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={() => handleDeleteAddress(item.id)}
+          >
+            <Ionicons name="trash-outline" size={16} color="#F44336" />
+            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
     );
   };
 
@@ -162,7 +166,7 @@ export default function SavedAddressesScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -229,6 +233,15 @@ export default function SavedAddressesScreen({ navigation }) {
           </>
         )}
       </ScrollView>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        buttons={[{ text: 'OK', onPress: () => setAlertVisible(false) }]}
+        onClose={() => setAlertVisible(false)}
+      />
     </SafeAreaView>
   );
 }

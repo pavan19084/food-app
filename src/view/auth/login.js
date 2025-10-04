@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Image,
   ScrollView,
   TouchableWithoutFeedback,
@@ -17,11 +16,12 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 import { useOrder } from "../../context/OrderContext";
+import { useAlert } from "../../hooks/useAlert";
+import CustomAlert from "../../components/CustomAlert";
 import { colors } from "../../constants/colors";
-import { Ionicons } from "@expo/vector-icons";
-
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -33,7 +33,8 @@ export default function Login() {
   const { signIn } = useAuth();
   const { setOrderPlaced } = useOrder();
 
-  // Next-step routing (e.g., go to OrderConfirmation after login)
+  const { show, hide, visible, title, message, buttons } = useAlert();
+
   const next = route?.params?.next;
   const nextParams = route?.params?.nextParams;
 
@@ -41,7 +42,6 @@ export default function Login() {
     try {
       await signIn({ email: email.trim(), password });
       if (next) {
-        // If we're going to OrderConfirmation, set the order in context for notification
         if (next === "OrderConfirmation" && nextParams?.orderDetails) {
           setOrderPlaced(nextParams.orderDetails);
         }
@@ -51,17 +51,17 @@ export default function Login() {
       }
     } catch (error) {
       console.log("Error in login: ", error?.message);
-      Alert.alert(
-        "Login Error",
-        error?.response?.data?.msg || "Invalid credentials. Please try again."
-      );
+      show({
+        title: "Login Error",
+        message: error?.response?.data?.msg || "Invalid credentials. Please try again.",
+        buttons: [{ text: "OK" }],
+      });
     }
   };
 
   const keyboardOffset = Platform.select({
     ios: insets.top + 16,
-    android: 0, // 'height' handles it on Android
-    default: 0,
+    android: 0,
   });
 
   return (
@@ -85,6 +85,7 @@ export default function Login() {
                   justifyContent: "center",
                 }}
               >
+                {/* Logo Section */}
                 <View style={{ alignItems: "center", marginBottom: 48 }}>
                   <View
                     style={{
@@ -118,32 +119,9 @@ export default function Login() {
                     Delicious food, delivered fresh
                   </Text>
                 </View>
-                <View style={{ marginBottom: 24 }}>
-                {/* Email Field */}
-                <TextInput
-                  style={{
-                    height: 56,
-                    borderRadius: 16,
-                    backgroundColor: "#fff",
-                    paddingHorizontal: 20,
-                    fontSize: 16,
-                    color: colors.text,
-                    marginBottom: 16,
-                    borderWidth: 1,
-                    borderColor: "#ccc",
-                  }}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#999"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  returnKeyType="next"
-                  value={email}
-                  onChangeText={setEmail}
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                />
 
-                {/* Password Field with Eye Button */}
-                <View>
+                {/* Email Input */}
+                <View style={{ marginBottom: 24 }}>
                   <TextInput
                     style={{
                       height: 56,
@@ -151,36 +129,61 @@ export default function Login() {
                       backgroundColor: "#fff",
                       paddingHorizontal: 20,
                       fontSize: 16,
-                      color: "#000",
+                      color: colors.text,
+                      marginBottom: 16,
                       borderWidth: 1,
                       borderColor: "#ccc",
-                      paddingRight: 48, // leave space for eye button
                     }}
-                    placeholder="Enter your password"
+                    placeholder="Enter your email"
                     placeholderTextColor="#999"
-                    secureTextEntry={!showPassword}
-                    value={password}
-                    onChangeText={setPassword}
-                    returnKeyType="done"
-                    onSubmitEditing={signInWithEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    returnKeyType="next"
+                    value={email}
+                    onChangeText={setEmail}
+                    onSubmitEditing={() => Keyboard.dismiss()}
                   />
-                  <TouchableOpacity
-                    style={{
-                      position: "absolute",
-                      right: 16,
-                      top: 14,
-                    }}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off" : "eye"}
-                      size={22}
-                      color="#666"
+
+                  {/* Password Field */}
+                  <View>
+                    <TextInput
+                      style={{
+                        height: 56,
+                        borderRadius: 16,
+                        backgroundColor: "#fff",
+                        paddingHorizontal: 20,
+                        fontSize: 16,
+                        color: "#000",
+                        borderWidth: 1,
+                        borderColor: "#ccc",
+                        paddingRight: 48,
+                      }}
+                      placeholder="Enter your password"
+                      placeholderTextColor="#999"
+                      secureTextEntry={!showPassword}
+                      value={password}
+                      onChangeText={setPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={signInWithEmail}
                     />
-                  </TouchableOpacity>
-                </View>
+                    <TouchableOpacity
+                      style={{
+                        position: "absolute",
+                        right: 16,
+                        top: 14,
+                      }}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <Ionicons
+                        name={showPassword ? "eye-off" : "eye"}
+                        size={22}
+                        color="#666"
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
+                {/* Sign In Button */}
                 <TouchableOpacity
                   onPress={signInWithEmail}
                   activeOpacity={0.8}
@@ -204,6 +207,7 @@ export default function Login() {
                   </Text>
                 </TouchableOpacity>
 
+                {/* Forgot Password */}
                 <TouchableOpacity
                   onPress={() => navigation.navigate("ForgotPassword")}
                   style={{ marginTop: 16, alignItems: "center" }}
@@ -220,10 +224,9 @@ export default function Login() {
                   </Text>
                 </TouchableOpacity>
 
+                {/* Sign Up Section */}
                 <View style={{ marginTop: 24, alignItems: "center" }}>
-                  <Text
-                    style={{ color: colors.textWhite, fontSize: 16, opacity: 0.9 }}
-                  >
+                  <Text style={{ color: colors.textWhite, fontSize: 16, opacity: 0.9 }}>
                     Don't have an account?
                   </Text>
                   <TouchableOpacity
@@ -247,6 +250,15 @@ export default function Login() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </LinearGradient>
+
+      {/* Custom Alert Modal */}
+      <CustomAlert
+        visible={visible}
+        title={title}
+        message={message}
+        buttons={buttons}
+        onClose={hide}
+      />
     </View>
   );
 }

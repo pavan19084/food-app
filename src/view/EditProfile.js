@@ -1,93 +1,131 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert, 
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
   StatusBar,
   Image,
   Modal,
-} from 'react-native';
-import { useAuth } from '../context/AuthContext';
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "../context/AuthContext";
+import CustomAlert from "../components/CustomAlert"; // your custom alert
 
 export default function EditProfile({ route, navigation }) {
   const { user: ctxUser, saveProfile } = useAuth();
 
   const initial = route?.params?.user || {
-    name: ctxUser?.name || ctxUser?.username || '',
-    email: ctxUser?.email || '',
-    phone: ctxUser?.phone || '',
-    dob: ctxUser?.dob || '',
-    gender: ctxUser?.gender || '',
-    avatar: ctxUser?.avatar || 'https://i.pravatar.cc/150?img=12',
+    name: ctxUser?.name || ctxUser?.username || "",
+    email: ctxUser?.email || "",
+    phone: ctxUser?.phone || "",
+    dob: ctxUser?.dob || "",
+    gender: ctxUser?.gender || "",
+    avatar: ctxUser?.avatar || "https://i.pravatar.cc/150?img=12",
   };
 
-  const [formData, setFormData] = useState({
-    name: initial.name,
-    email: initial.email,
-    phone: initial.phone,
-    dob: initial.dob,
-    gender: initial.gender,
-    avatar: initial.avatar
-  });
-
+  const [formData, setFormData] = useState({ ...initial });
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+
+  // Custom Alert state
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const onSave = async () => {
     if (!formData.name.trim()) {
-      Alert.alert('Error', 'Name is required');
+      showAlert("Error", "Name is required");
       return;
     }
     if (!formData.email.trim()) {
-      Alert.alert('Error', 'Email is required');
+      showAlert("Error", "Email is required");
       return;
     }
-    
-    Alert.alert('Success', 'Profile updated successfully!');
-    navigation.goBack();
 
-      try {
-           await saveProfile({
-             name: formData.name.trim(),
-             email: formData.email.trim(),
-             phone: formData.phone.trim(),
-             dob: formData.dob,
-           gender: formData.gender,
-             avatar: formData.avatar,
-         });
-           Alert.alert('Success', 'Profile updated successfully!');
-           navigation.goBack();
-         } catch (e) {
-           Alert.alert('Update Failed', e?.response?.data?.msg || e?.message || 'Could not update profile');
-        }
+    try {
+      await saveProfile({ ...formData });
+      showAlert("Success", "Profile updated successfully!");
+    } catch (e) {
+      showAlert(
+        "Update Failed",
+        e?.response?.data?.msg || e?.message || "Could not update profile"
+      );
+    }
   };
 
-  const GenderOption = ({ option, onSelect }) => (
+  // Expo Image Picker
+  const pickImage = async (type) => {
+    let result;
+    if (type === "camera") {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        showAlert(
+          "Permission Denied",
+          "Camera access is required to take a photo."
+        );
+        return;
+      }
+      result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+      });
+    } else {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        showAlert(
+          "Permission Denied",
+          "Gallery access is required to select an image."
+        );
+        return;
+      }
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+      });
+    }
+
+    if (!result.canceled) {
+      updateField("avatar", result.assets[0].uri);
+      setShowImageModal(false);
+    }
+  };
+
+  const GenderOption = ({ option }) => (
     <TouchableOpacity
       style={[
         styles.genderOption,
-        { 
-          backgroundColor: formData.gender === option.value ? '#E64A19' : '#FFF',
-          borderColor: '#E2E8F0'
-        }
+        {
+          backgroundColor:
+            formData.gender === option.value ? "#E64A19" : "#FFF",
+          borderColor: "#E2E8F0",
+        },
       ]}
       onPress={() => {
-        updateField('gender', option.value);
+        updateField("gender", option.value);
         setShowGenderModal(false);
       }}
     >
-      <Text style={[
-        styles.genderOptionText,
-        { color: formData.gender === option.value ? '#FFF' : '#333' }
-      ]}>
+      <Text
+        style={[
+          styles.genderOptionText,
+          { color: formData.gender === option.value ? "#FFF" : "#333" },
+        ]}
+      >
         {option.label}
       </Text>
     </TouchableOpacity>
@@ -96,10 +134,13 @@ export default function EditProfile({ route, navigation }) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF8F5" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
           <Text style={styles.backButtonText}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
@@ -108,12 +149,21 @@ export default function EditProfile({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
         {/* Profile Image */}
         <View style={styles.imageSection}>
           <Text style={styles.sectionTitle}>Profile Picture</Text>
-          <TouchableOpacity style={styles.imageContainer}>
-            <Image source={{ uri: formData.avatar }} style={styles.profileImage} />
+          <TouchableOpacity
+            style={styles.imageContainer}
+            onPress={() => setShowImageModal(true)}
+          >
+            <Image
+              source={{ uri: formData.avatar }}
+              style={styles.profileImage}
+            />
             <View style={styles.imageOverlay}>
               <Text style={styles.imageOverlayText}>Change</Text>
             </View>
@@ -123,13 +173,13 @@ export default function EditProfile({ route, navigation }) {
         {/* Personal Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
-          
+
           {/* Name */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Full Name *</Text>
             <TextInput
               value={formData.name}
-              onChangeText={(value) => updateField('name', value)}
+              onChangeText={(value) => updateField("name", value)}
               placeholder="Enter your full name"
               placeholderTextColor="#999"
               style={styles.input}
@@ -141,7 +191,7 @@ export default function EditProfile({ route, navigation }) {
             <Text style={styles.label}>Email Address *</Text>
             <TextInput
               value={formData.email}
-              onChangeText={(value) => updateField('email', value)}
+              onChangeText={(value) => updateField("email", value)}
               placeholder="you@example.com"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -155,7 +205,7 @@ export default function EditProfile({ route, navigation }) {
             <Text style={styles.label}>Mobile Number</Text>
             <TextInput
               value={formData.phone}
-              onChangeText={(value) => updateField('phone', value)}
+              onChangeText={(value) => updateField("phone", value)}
               placeholder="+91 98765 43210"
               keyboardType="phone-pad"
               placeholderTextColor="#999"
@@ -170,8 +220,13 @@ export default function EditProfile({ route, navigation }) {
               style={styles.dateInput}
               onPress={() => setShowDateModal(true)}
             >
-              <Text style={[styles.dateInputText, { color: formData.dob ? '#333' : '#999' }]}>
-                {formData.dob || 'Select your date of birth'}
+              <Text
+                style={[
+                  styles.dateInputText,
+                  { color: formData.dob ? "#333" : "#999" },
+                ]}
+              >
+                {formData.dob || "Select your date of birth"}
               </Text>
               <Text style={styles.dateInputIcon}>📅</Text>
             </TouchableOpacity>
@@ -184,8 +239,13 @@ export default function EditProfile({ route, navigation }) {
               style={styles.genderInput}
               onPress={() => setShowGenderModal(true)}
             >
-              <Text style={[styles.genderInputText, { color: formData.gender ? '#333' : '#999' }]}>
-                {formData.gender || 'Select your gender'}
+              <Text
+                style={[
+                  styles.genderInputText,
+                  { color: formData.gender ? "#333" : "#999" },
+                ]}
+              >
+                {formData.gender || "Select your gender"}
               </Text>
               <Text style={styles.genderInputIcon}>▼</Text>
             </TouchableOpacity>
@@ -193,7 +253,7 @@ export default function EditProfile({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Gender Selection Modal */}
+      {/* Gender Modal */}
       <Modal
         visible={showGenderModal}
         transparent
@@ -207,15 +267,20 @@ export default function EditProfile({ route, navigation }) {
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Gender</Text>
-            <GenderOption option={{ value: 'male', label: 'Male' }} />
-            <GenderOption option={{ value: 'female', label: 'Female' }} />
-            <GenderOption option={{ value: 'other', label: 'Other' }} />
-            <GenderOption option={{ value: 'prefer-not-to-say', label: 'Prefer not to say' }} />
+            <GenderOption option={{ value: "male", label: "Male" }} />
+            <GenderOption option={{ value: "female", label: "Female" }} />
+            <GenderOption option={{ value: "other", label: "Other" }} />
+            <GenderOption
+              option={{
+                value: "prefer-not-to-say",
+                label: "Prefer not to say",
+              }}
+            />
           </View>
         </TouchableOpacity>
       </Modal>
 
-      {/* Date Selection Modal */}
+      {/* Date Modal */}
       <Modal
         visible={showDateModal}
         transparent
@@ -237,7 +302,7 @@ export default function EditProfile({ route, navigation }) {
               placeholderTextColor="#999"
               style={styles.dateTextInput}
               value={formData.dob}
-              onChangeText={(value) => updateField('dob', value)}
+              onChangeText={(value) => updateField("dob", value)}
             />
             <TouchableOpacity
               style={styles.modalButton}
@@ -248,6 +313,51 @@ export default function EditProfile({ route, navigation }) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Image Picker Modal */}
+      <Modal
+        visible={showImageModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImageModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowImageModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Change Profile Picture</Text>
+            <TouchableOpacity
+              style={styles.genderOption}
+              onPress={() => pickImage("camera")}
+            >
+              <Text style={styles.genderOptionText}>Take Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.genderOption}
+              onPress={() => pickImage("library")}
+            >
+              <Text style={styles.genderOptionText}>Choose from Gallery</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowImageModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        buttons={[{ text: "OK", onPress: () => setAlertVisible(false) }]}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }
