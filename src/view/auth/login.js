@@ -50,7 +50,7 @@ export default function Login() {
         navigation.reset({ index: 0, routes: [{ name: "Home" }] });
       }
     } catch (error) {
-      console.log("Error in login: ", error?.message);
+      console.error("Error in login: ", error?.message);
       show({
         title: "Login Error",
         message: error?.response?.data?.msg || "Invalid credentials. Please try again.",

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
   Image, SafeAreaView, Modal, TextInput, Switch, Platform
@@ -8,56 +8,88 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 import { useOrder } from "../../context/OrderContext";
 import { Order } from "../../models/order";
+import { addOrder } from "../../api/order";
+import { getAllAddresses } from "../../api/address";
+import { useAlert } from "../../hooks/useAlert";
+import CustomAlert from "../../components/CustomAlert";
+import LoadingSpinner from "../../components/LoadingSpinner";
 
 export default function CartScreen({ navigation, route }) {
   const { user } = useAuth();
   const { setOrderPlaced } = useOrder();
+  const alert = useAlert();
 
-  const { cartItems = [], restaurantName = "Eat Healthy", restaurantData } = route?.params || {};
-  const [items, setItems] = useState(
-    cartItems.length > 0
-      ? cartItems
-      : [
-          {
-            id: 1,
-            name: "Plant Protein Bowl",
-            price: 8.99,
-            quantity: 1,
-            isVeg: true,
-            image:
-              "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop&auto=format",
-          },
-        ]
-  );
+  const { cartItems = [], restaurantName, restaurantData , restaurantId} = route?.params || {};
+  const [items, setItems] = useState(cartItems);
 
   const [selectedPayment, setSelectedPayment] = useState("card");
   const [selectedDeliveryType, setSelectedDeliveryType] = useState("delivery");
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
-  // Get restaurant capabilities with fallback
-  const capabilities = restaurantData || {
-    deliveryAvailable: true,
-    collectionAvailable: true,
-    cardPaymentAvailable: true,
-    cashOnDeliveryAvailable: true,
-    deliveryTime: "45-50 mins",
-    collectionTime: "15-20 mins"
+  // Get restaurant capabilities
+  const capabilities = restaurantData;
+
+  // Load user addresses on mount
+  useEffect(() => {
+    if (user?.id) {
+      loadUserAddresses();
+    }
+  }, [user?.id]);
+
+  const loadUserAddresses = async () => {
+    try {
+      setIsLoadingLocation(true);
+      const result = await getAllAddresses();
+      
+      if (result.success && result.data && result.data.length > 0) {
+        // Select the first address by default
+        setSelectedLocation(result.data[0]);
+      } else {
+        alert.show({
+          title: 'No Address Found',
+          message: 'Please add an address before placing an order.',
+          buttons: [
+            { 
+              text: 'Add Address', 
+              onPress: () => navigation.navigate('AddAddressScreen') 
+            },
+            { text: 'Cancel', onPress: () => navigation.goBack() }
+          ]
+        });
+      }
+    } catch (error) {
+      console.error('Error loading addresses:', error);
+      alert.show({
+        title: 'Error',
+        message: 'Failed to load addresses. Please try again.',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
+    } finally {
+      setIsLoadingLocation(false);
+    }
   };
 
   // Set default delivery type based on what's available
   React.useEffect(() => {
-    if (!capabilities.deliveryAvailable && capabilities.collectionAvailable) {
-      setSelectedDeliveryType("collection");
-    } else if (capabilities.deliveryAvailable && !capabilities.pickupAvailable) {
-      setSelectedDeliveryType("delivery");
+    if (capabilities) {
+      if (!capabilities.deliveryAvailable && capabilities.collectionAvailable) {
+        setSelectedDeliveryType("takeaway");
+      } else if (capabilities.deliveryAvailable && !capabilities.pickupAvailable) {
+        setSelectedDeliveryType("delivery");
+      }
     }
   }, [capabilities]);
 
   // Set default payment method based on what's available
   React.useEffect(() => {
-    if (!capabilities.cardPaymentAvailable && capabilities.cashOnDeliveryAvailable) {
-      setSelectedPayment("cod");
-    } else if (capabilities.cardPaymentAvailable && !capabilities.cashOnDeliveryAvailable) {
-      setSelectedPayment("card");
+    if (capabilities) {
+      if (!capabilities.cardPaymentAvailable && capabilities.cashOnDeliveryAvailable) {
+        setSelectedPayment("cod");
+      } else if (capabilities.cardPaymentAvailable && !capabilities.cashOnDeliveryAvailable) {
+        setSelectedPayment("card");
+      }
     }
   }, [capabilities]);
 
@@ -164,9 +196,22 @@ export default function CartScreen({ navigation, route }) {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const deliveryFee = selectedDeliveryType === "delivery" ? 1.5 : 0;
   const taxes = subtotal * 0.05;
-  const total = subtotal + deliveryFee + taxes;
+  const total = subtotal;
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Show loading state while loading addresses
+  if (isLoadingLocation) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <LoadingSpinner 
+          text="Loading delivery address..." 
+          containerStyle={styles.loadingContainer}
+        />
+      </SafeAreaView>
+    );
+  }
 
   // If cart is empty, show empty cart state
   if (totalItems === 0) {
@@ -221,50 +266,124 @@ export default function CartScreen({ navigation, route }) {
     </View>
   );
 
-  const handlePlaceOrder = () => {
-    const notePayload = dontSendNote
-      ? null
-      : {
-          tags: noteTags,
-          text: customNote.trim(),
-        };
-
-    const orderDetails = {
-      orderId: "ORD" + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      restaurantName,
-      restaurantContact: restaurantData?.contactNumber || '+1-555-0000',
-      items: items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      total,
-      deliveryType: selectedDeliveryType,
-      deliveryAddress: selectedDeliveryType === "delivery" ? "Selected address is 825 m away from your location" : "Collection at restaurant",
-      estimatedDelivery: selectedDeliveryType === "delivery" ? capabilities.deliveryTime : capabilities.collectionTime,
-      paymentMethod: selectedPayment === "card" ? "Card Payment" : "Cash on Delivery",
-      orderTime: new Date().toLocaleTimeString(),
-      orderDate: new Date().toLocaleDateString(),
-      specialInstructions: notePayload,
-      createdAt: new Date().toISOString(), // Add creation timestamp for order model
-    };
-
+  const handlePlaceOrder = async () => {
     // Gate only here: if not logged in, open Login modal with redirect
     if (!user) {
       navigation.navigate("Login", {
-        next: "OrderConfirmation",
-        nextParams: { orderDetails },
+        next: "Cart",
+        nextParams: { cartItems: items, restaurantName, restaurantData },
       });
       return;
     }
 
-    // Create order using Order model and set in context
-    setOrderPlaced(orderDetails);
+    // Check if location is selected
+    if (!selectedLocation) {
+      alert.show({
+        title: 'No Address Selected',
+        message: 'Please select a delivery address before placing the order.',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
+      return;
+    }
 
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "OrderConfirmation", params: { orderDetails } }],
-    });
+    setIsPlacingOrder(true);
+
+    try {
+      // Prepare special instructions
+      const specialInstructions = dontSendNote
+        ? null
+        : (() => {
+            const parts = [];
+            if (noteTags.length > 0) {
+              parts.push(...noteTags);
+            }
+            if (customNote.trim()) {
+              parts.push(customNote.trim());
+            }
+            return parts.length > 0 ? parts.join(', ') : null;
+          })();
+
+
+      // Prepare order data for API
+      const orderData = {
+        user_id: user.id.toString(),
+        restaurant_id: restaurantId,
+        location_id: selectedLocation.id.toString(),
+        items: Order.formatCartItemsForApi(items),
+        total_price: total,
+        payment_type: selectedPayment,
+        order_type: selectedDeliveryType,
+        special_instructions: specialInstructions
+      };
+      const result = await addOrder(orderData);
+      console.log("result ",result);
+
+      if (result.success) {
+        // Create order details for the confirmation screen
+        const orderDetails = {
+          orderId: result.data.order_id,
+          restaurantName,
+          restaurantContact: restaurantData?.contactNumber,
+          items: items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          total,
+          deliveryType: selectedDeliveryType,
+          deliveryAddress: selectedDeliveryType === "delivery" 
+            ? `${selectedLocation.addressline1}, ${selectedLocation.area}, ${selectedLocation.city}` 
+            : "Collection at restaurant",
+          estimatedDelivery: selectedDeliveryType === "delivery" ? capabilities?.deliveryTime : capabilities?.collectionTime,
+          paymentMethod: selectedPayment === "card" ? "Card Payment" : "Cash on Delivery",
+          orderTime: new Date().toLocaleTimeString(),
+          orderDate: new Date().toLocaleDateString(),
+          specialInstructions: specialInstructions,
+          createdAt: new Date().toISOString(),
+          status: result.data.status,
+          // API response fields
+          id: result.data.id,
+          order_id: result.data.order_id,
+          user_id: user.id,
+          restaurant_id: orderData.restaurant_id,
+          location_id: orderData.location_id,
+          total_price: total.toString(),
+          payment_type: selectedPayment,
+          order_type: selectedDeliveryType,
+          special_instructions: specialInstructions
+        };
+
+        // Set order in context and navigate to confirmation
+        setOrderPlaced(orderDetails);
+
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "OrderConfirmation", params: { orderDetails } }],
+        });
+      } else {
+        alert.show({
+          title: "Order Failed",
+          message: result.message || "Failed to place order. Please try again.",
+          buttons: [{ text: "OK", onPress: () => {} }]
+        });
+      }
+    } catch (error) {
+      console.error("Error placing order:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          "An unexpected error occurred. Please try again.";
+      
+      alert.show({
+        title: "Order Error",
+        message: errorMessage,
+        buttons: [{ text: "OK", onPress: () => {} }]
+      });
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   return (
@@ -282,12 +401,14 @@ export default function CartScreen({ navigation, route }) {
       </View>
 
       {/* Location Info */}
-      <View style={styles.locationInfo}>
-        <Ionicons name="location-outline" size={16} color={colors.textLight} />
-        <Text style={styles.locationText}>
-          Selected address is 825 m away from your location
-        </Text>
-      </View>
+      {selectedLocation && (
+        <View style={styles.locationInfo}>
+          <Ionicons name="location-outline" size={16} color={colors.textLight} />
+          <Text style={styles.locationText}>
+            {selectedLocation.addressline1}, {selectedLocation.area}, {selectedLocation.city}
+          </Text>
+        </View>
+      )}
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Cart Items */}
@@ -364,14 +485,14 @@ export default function CartScreen({ navigation, route }) {
         </View>
 
         {/* Delivery/Collection Selection */}
-        {(capabilities.deliveryAvailable || capabilities.collectionAvailable) && (
+        {capabilities && (capabilities.deliveryAvailable || capabilities.collectionAvailable) && (
           <View style={styles.section}>
             <View style={styles.paymentHeader}>
               <Ionicons name="car-outline" size={20} color={colors.text} />
               <Text style={styles.paymentHeaderText}>Delivery or Collection</Text>
             </View>
 
-            {capabilities.deliveryAvailable && (
+            {capabilities && capabilities.deliveryAvailable && (
               <TouchableOpacity
                 style={[
                   styles.paymentOption,
@@ -396,13 +517,13 @@ export default function CartScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
 
-            {capabilities.collectionAvailable && (
+            {capabilities && capabilities.collectionAvailable && (
               <TouchableOpacity
                 style={[
                   styles.paymentOption,
                   selectedDeliveryType === "collection" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
                 ]}
-                onPress={() => setSelectedDeliveryType("collection")}
+                onPress={() => setSelectedDeliveryType("takeaway")}
               >
                 <View style={styles.paymentLeft}>
                   <Ionicons
@@ -430,7 +551,7 @@ export default function CartScreen({ navigation, route }) {
             <Text style={styles.paymentHeaderText}>Payment Method</Text>
           </View>
 
-          {capabilities.cardPaymentAvailable && (
+          {capabilities && capabilities.cardPaymentAvailable && (
             <TouchableOpacity
               style={[
                 styles.paymentOption,
@@ -452,7 +573,7 @@ export default function CartScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
 
-          {capabilities.cashOnDeliveryAvailable && (
+          {capabilities && capabilities.cashOnDeliveryAvailable && (
             <TouchableOpacity
               style={[
                 styles.paymentOption,
@@ -508,8 +629,16 @@ export default function CartScreen({ navigation, route }) {
           <Text style={styles.orderTotalText}>TOTAL</Text>
           <Text style={[styles.orderAmount, { fontSize: 18 }]}>£{total.toFixed(2)}</Text>
         </View>
-        <TouchableOpacity style={[styles.placeOrderBtn, { backgroundColor: "#000" }]} onPress={handlePlaceOrder}>
-          <Text style={[styles.placeOrderText, { color: "#fff" }]}>Place Order ▶</Text>
+        <TouchableOpacity 
+          style={[styles.placeOrderBtn, { backgroundColor: isPlacingOrder ? "#666" : "#000" }]} 
+          onPress={handlePlaceOrder}
+          disabled={isPlacingOrder}
+        >
+          {isPlacingOrder ? (
+            <LoadingSpinner size="small" color="#fff" />
+          ) : (
+            <Text style={[styles.placeOrderText, { color: "#fff" }]}>Place Order ▶</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -585,6 +714,15 @@ export default function CartScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        onClose={alert.hide}
+      />
     </SafeAreaView>
   );
 }
@@ -853,4 +991,9 @@ const styles = StyleSheet.create({
   },
   saveBtn: { backgroundColor: colors.primary },
   modalBtnText: { fontSize: 14, fontWeight: "600" },
+  loadingContainer: { 
+    flex: 1, 
+    alignItems: "center", 
+    justifyContent: "center" 
+  },
 });

@@ -51,7 +51,7 @@ export default function RestaurantScreen({ navigation, route }) {
   const [isLoadingMenu, setIsLoadingMenu] = useState(true);
   const [restaurantData, setRestaurantData] = useState(null);
 
-  const restaurantTitle = route.params?.title || "Restaurant";
+  const restaurantTitle = route.params?.title;
   const restaurantId = route.params?.restaurantId;
   const restaurantInfo = route.params?.restaurantData;
 
@@ -61,7 +61,7 @@ export default function RestaurantScreen({ navigation, route }) {
     } else {
       setRestaurantData({
         title: restaurantTitle,
-        subtitle: route.params?.subtitle || "Restaurant",
+        subtitle: route.params?.subtitle,
         rating: "4.0",
         deliveryTime: "30 mins",
         collectionTime: "15 mins",
@@ -69,7 +69,7 @@ export default function RestaurantScreen({ navigation, route }) {
         collectionAvailable: true,
         cardPaymentAvailable: true,
         cashOnDeliveryAvailable: true,
-        contactNumber: "+1-555-0123",
+        contactNumber: restaurantInfo?.phone,
       });
       setMenuItems([]);
       setIsLoadingMenu(false);
@@ -95,7 +95,7 @@ export default function RestaurantScreen({ navigation, route }) {
 
         setRestaurantData({
           title: restaurantTitle,
-          subtitle: route.params?.subtitle || "Restaurant",
+          subtitle: route.params?.subtitle,
           rating: "4.0",
           deliveryTime: "30 mins",
           collectionTime: "15 mins",
@@ -103,7 +103,7 @@ export default function RestaurantScreen({ navigation, route }) {
           collectionAvailable: true,
           cardPaymentAvailable: true,
           cashOnDeliveryAvailable: true,
-          contactNumber: restaurantInfo?.phone || "+1-555-0123",
+          contactNumber: restaurantInfo?.phone,
         });
       } else {
         alert.show({
@@ -166,8 +166,9 @@ export default function RestaurantScreen({ navigation, route }) {
     const cartItems = getCartItems();
     navigation.navigate("Cart", {
       cartItems,
-      restaurantName: restaurantData?.title || restaurantTitle,
+      restaurantName: restaurantData?.title,
       restaurantData: restaurantData,
+      restaurantId: restaurantId,
     });
   };
 

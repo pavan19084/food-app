@@ -145,7 +145,7 @@ export default function Profile({ navigation }) {
             <Card>
               <Item title="Your Collections" onPress={() => {}} />
               <Divider />
-              <Item title="Order History" onPress={() => {}} />
+              <Item title="Order History" onPress={() => navigation.navigate('OrderHistory')} />
               <Divider />
               <Item title="Saved Addresses" onPress={() => navigation.navigate('SavedAddresses')} />
             </Card>

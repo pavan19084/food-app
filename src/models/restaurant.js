@@ -33,22 +33,21 @@ export class Restaurant {
     return `http://31.97.56.234:3000/${this.profileImage}`;
   }
 
-  // Convert to format expected by UI components
+  
   toCardData() {
     return {
       id: this.restaurantId,
       cover: this.getImageUrl(),
       title: this.name,
       subtitle: this.getCuisineString(),
-      rating: '4.0', // Default rating since API doesn't provide it
-      priceForTwo: '€25', // Default price since API doesn't provide it
+      rating: '4.0',
       badges: this.cuisine.length > 0 ? this.cuisine.slice(0, 2) : ['Restaurant'],
       envNote: `Delicious ${this.getCuisineString().toLowerCase()} cuisine`,
       onTap: 'Restaurant',
       category: this.cuisine[0]?.toLowerCase() || 'restaurant',
       deliveryAvailable: true, // Default to true
       collectionAvailable: true, // Default to true
-      restaurantData: this // Store original data for menu screen
+      restaurantData: this
     };
   }
 }
@@ -89,7 +88,7 @@ export class MenuItem {
       price: this.price,
       desc: this.description,
       image: this.getImageUrl(),
-      isVeg: true // Default to veg since API doesn't specify
+      isVeg: true
     };
   }
 }

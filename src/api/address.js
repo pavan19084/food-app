@@ -22,14 +22,23 @@ export const updateAddress = async (addressId, addressData) => {
   }
 };
 
-// GET /address - Get all addresses for user
+// GET /my-addresses - Get all addresses for user
 export const getAllAddresses = async () => {
+  
   try {
-    const { data } = await client.get('/address');
-    return data;
+    const { data } = await client.get('/my-addresses');
+    return {
+      success: true,
+      data: data.data,
+      message: data.message
+    };
   } catch (error) {
-    console.error('Error fetching addresses:', error);
-    throw error;
+    
+    return {
+      success: false,
+      data: [],
+      message: error.response?.data?.message || 'Failed to fetch addresses'
+    };
   }
 };
 

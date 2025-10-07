@@ -85,7 +85,7 @@ export const AuthProvider = ({ children, onLoggedOut }) => {
       await AsyncStorage.setItem('@auth_user', JSON.stringify(mapped));
       return mapped;
     } catch (error) {
-      console.log('Login error details:', {
+      console.error('Login error details:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,

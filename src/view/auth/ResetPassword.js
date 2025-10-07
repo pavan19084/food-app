@@ -130,7 +130,7 @@ export default function ResetPassword() {
         ],
       });
     } catch (error) {
-      console.log("Error resetting password: ", error?.message);
+      console.error("Error resetting password: ", error?.message);
       alert.show({
         title: "Reset Failed",
         message:

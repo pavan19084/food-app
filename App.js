@@ -19,6 +19,7 @@ import CartScreen from "./src/view/restaurants/CartScreen";
 import OrderConfirmationScreen from "./src/view/OrderConfirmationScreen";
 import SavedAddressesScreen from "./src/view/SavedAddressesScreen";
 import AddAddressScreen from "./src/view/AddAddressScreen";
+import OrderHistoryScreen from "./src/view/OrderHistoryScreen";
 import LocationModal from "./src/components/LocationModal";
 import SplashScreen from "./src/components/SplashScreen";
 
@@ -44,6 +45,7 @@ function MainStack() {
       <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} />
       <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} />
       <Stack.Screen name="AddAddressScreen" component={AddAddressScreen} />
+      <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
       <Stack.Screen name="LocationModal" component={LocationModal} />
 
       {/* Auth modals */}

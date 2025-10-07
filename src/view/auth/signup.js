@@ -70,7 +70,7 @@ export default function SignUp() {
 
       navigation.navigate("VerifyOtp", { email: email.trim(), next, nextParams });
     } catch (error) {
-      console.log("Error in signing up:", error?.message);
+      console.error("Error in signing up:", error?.message);
       alert.show({
         title: "Sign Up Error",
         message: error?.response?.data?.msg || error.message || "An error occurred. Please try again.",

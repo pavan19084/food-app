@@ -59,7 +59,7 @@ export default function ForgotPassword() {
         ],
       });
     } catch (error) {
-      console.log("Error sending OTP: ", error?.message);
+      console.error("Error sending OTP: ", error?.message);
       show({
         title: "Error",
         message:

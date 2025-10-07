@@ -10,9 +10,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LocationService } from '../utils/locationService';
+import { getAllAddresses } from '../api/address';
+import { Address } from '../models/address';
 import { colors } from '../constants/colors';
-import CustomAlert from '../components/CustomAlert'; // import your custom alert
+import CustomAlert from '../components/CustomAlert';
 
 export default function SavedAddressesScreen({ navigation }) {
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -36,11 +37,18 @@ export default function SavedAddressesScreen({ navigation }) {
   const loadSavedAddresses = async () => {
     setIsLoading(true);
     try {
-      const addresses = await LocationService.getSavedAddresses();
-      setSavedAddresses(addresses);
+      const result = await getAllAddresses();
+      if (result.success && result.data) {
+        const addressObjects = result.data.map(addressData => new Address(addressData));
+        setSavedAddresses(addressObjects);
+      } else {
+        showAlert('Error', result.message || 'Failed to load saved addresses.');
+        setSavedAddresses([]);
+      }
     } catch (error) {
       console.error('Error loading addresses:', error);
       showAlert('Error', 'Failed to load saved addresses.');
+      setSavedAddresses([]);
     } finally {
       setIsLoading(false);
     }
@@ -81,16 +89,6 @@ export default function SavedAddressesScreen({ navigation }) {
   };
 
   const renderAddressItem = ({ item }) => {
-    const formatAddress = (address) => {
-      const parts = [];
-      if (address.addressline1) parts.push(address.addressline1);
-      if (address.addressline2) parts.push(address.addressline2);
-      if (address.area) parts.push(address.area);
-      if (address.city) parts.push(address.city);
-      if (address.state) parts.push(address.state);
-      if (address.pincode) parts.push(address.pincode);
-      return parts.join(', ');
-    };
 
     return (
       <View style={styles.addressCard}>
@@ -100,23 +98,23 @@ export default function SavedAddressesScreen({ navigation }) {
           </View>
           <View style={styles.addressInfo}>
             <View style={styles.addressTopRow}>
-              <Text style={styles.addressName}>
-                {item.addressline1 || 'Floor/Street'}
-              </Text>
-              {item.isDefault && (
-                <View style={styles.defaultBadge}>
-                  <Text style={styles.defaultBadgeText}>Default</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.addressText} numberOfLines={3}>
-              {formatAddress(item)}
+            <Text style={styles.addressName}>
+              {item.addressLine1 || 'Floor/Street'}
             </Text>
-            {item.delivery_instructions && (
-              <Text style={styles.deliveryInstructions}>
-                Instructions: {item.delivery_instructions}
-              </Text>
+            {item.isDefault && (
+              <View style={styles.defaultBadge}>
+                <Text style={styles.defaultBadgeText}>Default</Text>
+              </View>
             )}
+          </View>
+          <Text style={styles.addressText} numberOfLines={3}>
+            {item.getFullAddress()}
+          </Text>
+          {item.hasDeliveryInstructions() && (
+            <Text style={styles.deliveryInstructions}>
+              Instructions: {item.deliveryInstructions}
+            </Text>
+          )}
           </View>
         </View>
 
@@ -208,7 +206,7 @@ export default function SavedAddressesScreen({ navigation }) {
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>
-                  {savedAddresses.filter(addr => addr.delivery_instructions).length}
+                  {savedAddresses.filter(addr => addr.hasDeliveryInstructions()).length}
                 </Text>
                 <Text style={styles.statLabel}>With Instructions</Text>
               </View>
