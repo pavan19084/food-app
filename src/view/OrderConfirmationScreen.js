@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   Animated,
   BackHandler,
+  Linking
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -53,6 +54,7 @@ export default function OrderConfirmationScreen({ navigation, route }) {
 
   // animations on mount
   useEffect(() => {
+    console.log("order detilsa",orderDetails);
     Animated.parallel([
       Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.timing(slideUp, { toValue: 0, duration: 500, useNativeDriver: true }),
@@ -81,7 +83,7 @@ export default function OrderConfirmationScreen({ navigation, route }) {
   useEffect(() => {
     if (!order?.orderId) return;
     trackOrderStatus();
-    const interval = setInterval(trackOrderStatus, 10000);
+    const interval = setInterval(trackOrderStatus, 500);
     return () => clearInterval(interval);
   }, [order?.orderId]);
 
@@ -255,13 +257,41 @@ export default function OrderConfirmationScreen({ navigation, route }) {
             <Ionicons name="call-outline" size={22} color={colors.primary} />
             <Text style={styles.cardTitle}>Restaurant Contact</Text>
           </View>
-          <Text style={styles.contactText}>
-            For any order-related issues, contact the restaurant directly:
-          </Text>
-          <TouchableOpacity style={styles.contactButton}>
-            <Ionicons name="call" size={16} color="#FFFFFF" />
-            <Text style={styles.contactButtonText}>{currentOrder.restaurantContact}</Text>
-          </TouchableOpacity>
+          {currentOrder.deliveryType === "delivery" ? (
+            <View>
+              <Text style={styles.contactText}>
+                For any order-related issues, contact the restaurant directly:
+              </Text>
+              <TouchableOpacity style={styles.contactButton} onPress={() => Linking.openURL(`tel:${currentOrder.restaurantContact}`)}>
+                <Ionicons name="call" size={16} color="#FFFFFF" />
+                <Text style={styles.contactButtonText}>{currentOrder.restaurantContact}</Text>
+              </TouchableOpacity>
+              {currentOrder.restaurantEmail && (
+                <TouchableOpacity style={styles.contactButton} onPress={() => Linking.openURL(`mailto:${currentOrder.restaurantEmail}`)}>
+                  <MaterialIcons name="email" size={16} color="#FFFFFF" />
+                  <Text style={styles.contactButtonText}>{currentOrder.restaurantEmail}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <View>
+              <Text style={styles.contactText}>
+                Your order is ready for collection at:
+              </Text>
+              <Text style={styles.address}>{currentOrder.restaurantAddress}</Text>
+              <TouchableOpacity 
+                style={styles.contactButton}
+                onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentOrder.restaurantAddress)}`)}
+              >
+                <Ionicons name="map" size={16} color="#FFFFFF" />
+                <Text style={styles.contactButtonText}>Get Directions</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.contactButton} onPress={() => Linking.openURL(`tel:${currentOrder.restaurantContact}`)}>
+                <Ionicons name="call" size={16} color="#FFFFFF" />
+                <Text style={styles.contactButtonText}>{currentOrder.restaurantContact}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
 

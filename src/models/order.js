@@ -18,10 +18,10 @@ export class Order {
     this.cancellationReason = orderData.cancellation_reason;
     this.createdAt = orderData.created_at || orderData.createdAt;
     this.updatedAt = orderData.updated_at || orderData.updatedAt;
-    this.restaurantName = orderData.restaurant_name;
-    
-    // Legacy fields for backward compatibility
-    this.restaurantName = orderData.restaurant_name || orderData.restaurantName;
+    this.restaurantName =
+      orderData.restaurantName ||
+      orderData.restaurant_name ||
+      (orderData.restaurant && orderData.restaurant.name);
     this.restaurantContact = orderData.restaurantContact;
     this.total = parseFloat(this.totalPrice) || 0;
     this.deliveryType = this.orderType;

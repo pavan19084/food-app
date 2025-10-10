@@ -2,7 +2,6 @@ import client from './client';
 
 // Add new order
 export const addOrder = async (orderData) => {
-  console.log("orderdata ",orderData);
   try {
     const { data } = await client.post('/user/order/add', orderData);
     console.log(data);
@@ -43,20 +42,14 @@ export const trackOrder = async (orderId) => {
 
 // Get all orders for a user
 export const getUserOrders = async (userId) => {
-
-  
   try {
     const { data } = await client.get(`/user/order/user/${userId}`);
-
-    
     return {
       success: true,
       data: data,
       message: 'User orders fetched successfully'
     };
   } catch (error) {
-
-    
     return {
       success: false,
       data: [],

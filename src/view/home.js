@@ -15,11 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useOrder } from '../context/OrderContext';
+import { useCart } from '../context/CartContext';
 import { LocationService } from '../utils/locationService';
 import { getAllRestaurants } from '../api/restaurant';
 import { useAlert } from '../hooks/useAlert';
 import CustomAlert from '../components/CustomAlert';
 import LoadingSpinner from '../components/LoadingSpinner';
+import CartFooter from '../components/CartFooter';
 
 const CATEGORY_ITEMS = [
   { id: 'healthy', label: 'Healthy', img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900&h=500&fit=crop&auto=format' },
@@ -92,7 +94,6 @@ const OrderRectangle = ({ order, onPress }) => {
   if (!order) return null;
 
   const summary = order.getOrderSummary();
-  console.log(summary);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.95} style={styles.orderCard}>
@@ -154,6 +155,12 @@ const OrderRectangle = ({ order, onPress }) => {
 
 const RestaurantCard = ({ item }) => {
   const navigation = useNavigation();
+  const metaIcons = [];
+  if (item.deliveryAvailable) metaIcons.push({ name: 'bicycle', label: 'Delivery' });
+  if (item.collectionAvailable) metaIcons.push({ name: 'storefront', label: 'Collection' });
+  if (item.cardPaymentAvailable) metaIcons.push({ name: 'card', label: 'Card' });
+  if (item.cashOnDeliveryAvailable) metaIcons.push({ name: 'cash', label: 'Cash' });
+  if (!item.isOnline) metaIcons.push({ name: 'cloud-offline', label: 'Offline', color: '#FF6B6B' });
 
   const handlePress = () => {
     if (item.onTap) {
@@ -170,44 +177,19 @@ const RestaurantCard = ({ item }) => {
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.95}>
       <Image source={{ uri: item.cover }} style={styles.cardImage} />
       <View style={styles.cardBody}>
         <Text style={styles.cardTitle}>{item.title}</Text>
         <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-
         <View style={styles.metaRow}>
-          <View style={styles.ratingPill}>
-            <Text style={styles.ratingText}>{item.rating} ★</Text>
-          </View>
-          <Text style={styles.dot}>·</Text>
-          <Text style={styles.priceText}>{item.priceForTwo}</Text>
-        </View>
-
-        <View style={styles.badgeRow}>
-          {item.badges.map(b => (
-            <View key={b} style={styles.badge}>
-              <Text style={styles.badgeText}>{b}</Text>
+          {metaIcons.map((icon, idx) => (
+            <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+              <Ionicons name={icon.name + '-outline'} size={18} color={icon.color || '#666'} />
+              <Text style={{ fontSize: 12, color: icon.color || '#666', marginLeft: 4 }}>{icon.label}</Text>
             </View>
           ))}
         </View>
-
-        <View style={styles.deliveryCollectionRow}>
-          {item.deliveryAvailable && (
-            <View style={styles.deliveryIndicator}>
-              <Ionicons name="bicycle-outline" size={14} color="#4CAF50" />
-              <Text style={styles.deliveryText}>Delivery</Text>
-            </View>
-          )}
-          {item.collectionAvailable && (
-            <View style={styles.collectionIndicator}>
-              <Ionicons name="storefront-outline" size={14} color="#FF9800" />
-              <Text style={styles.collectionText}>Collection</Text>
-            </View>
-          )}
-        </View>
-
-        <Text style={styles.envNote} numberOfLines={2}>{item.envNote}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -217,6 +199,7 @@ export default function Home() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { activeOrder, showOrderNotification } = useOrder();
+  const { getTotalItems } = useCart();
   const alert = useAlert();
 
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -230,6 +213,7 @@ export default function Home() {
   const [showHorizontalCategories, setShowHorizontalCategories] = useState(false);
 
   const initials = (user?.name || user?.username || 'U').trim().charAt(0).toUpperCase();
+  const hasCartItems = getTotalItems() > 0;
 
   useEffect(() => {
     loadLocation();
@@ -423,7 +407,9 @@ export default function Home() {
 
       {/* Scrollable Content */}
       <Animated.ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ 
+          paddingBottom: hasCartItems ? 140 : 40 
+        }}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -467,6 +453,9 @@ export default function Home() {
         )}
       </Animated.ScrollView>
 
+      {/* Cart Footer */}
+      <CartFooter />
+
       <CustomAlert
         visible={alert.visible}
         title={alert.title}
@@ -478,70 +467,81 @@ export default function Home() {
   );
 }
 
-// --- STYLES ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
     backgroundColor: '#FFF8F5',
   },
   locationRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
   },
   locationInfoContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
-  locationPin: { fontSize: 18 },
-  locationCity: { fontSize: 14, fontWeight: '700', color: '#333' },
-  locationSub: { fontSize: 12, marginTop: 2, color: '#666' },
-  changeButton: { paddingHorizontal: 8, paddingVertical: 4 },
-  changeText: { fontSize: 12, fontWeight: '700', color: '#FF6B6B' },
-  searchRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: 16, 
-    gap: 10, 
-    marginTop: 10,
-    marginBottom: 10,
+  locationPin: {
+    fontSize: 20,
+    marginRight: 10,
   },
-  searchInput: { 
-    flex: 1, 
-    height: 44, 
-    borderRadius: 12, 
-    paddingHorizontal: 16, 
-    fontSize: 14, 
-    borderWidth: 1, 
-    borderColor: '#E0E0E0', 
-    backgroundColor: '#FFFFFF', 
-    color: '#333' 
+  locationCity: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
   },
-  profileBtn: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    borderWidth: 1, 
-    backgroundColor: '#FF6B6B', 
-    borderColor: '#FF6B6B' 
+  locationSub: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
-  profileInitials: { fontWeight: '800', fontSize: 16, color: '#FFFFFF' },
-  
-  // Horizontal Categories (Sticky)
+  changeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  changeText: {
+    color: '#FF6B6B',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#1A1A1A',
+  },
+  profileBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FF6B6B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileInitials: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   horizontalCategoriesContainer: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#F0F0F0',
   },
   horizontalCategoriesContent: {
     paddingHorizontal: 16,
@@ -559,53 +559,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-
-  h2: { 
-    fontSize: 20, 
-    fontWeight: '700', 
-    paddingHorizontal: 16, 
-    marginTop: 20, 
-    marginBottom: 12, 
-    color: '#333' 
-  },
-  
-  // Category Bubbles Grid
-  categoriesGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    paddingHorizontal: 12 
-  },
-  catItem: { 
-    width: '25%', 
-    alignItems: 'center', 
-    paddingVertical: 12 
-  },
-  catImage: { 
-    width: 72, 
-    height: 72, 
-    borderRadius: 36, 
-    borderWidth: 3 
-  },
-  catLabel: { 
-    marginTop: 8, 
-    fontSize: 12, 
-    textAlign: 'center' 
-  },
-
-  // ORDER CARD STYLES
   orderCard: {
-    marginHorizontal: 16,
-    marginVertical: 12,
-    padding: 16,
-    borderRadius: 16,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#FF6B6B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   orderHeader: {
     flexDirection: 'row',
@@ -615,10 +579,10 @@ const styles = StyleSheet.create({
   orderIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: '#FFF2F0',
-    alignItems: 'center',
+    borderRadius: 24,
+    backgroundColor: '#FFE5E5',
     justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   orderInfo: {
@@ -627,7 +591,7 @@ const styles = StyleSheet.create({
   orderTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: '#1A1A1A',
     marginBottom: 4,
   },
   orderSubtitle: {
@@ -638,88 +602,99 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
   },
   progressStep: {
     alignItems: 'center',
-    width: 55,
+    flex: 1,
   },
   progressDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
   },
   progressLabel: {
-    fontSize: 9,
+    fontSize: 10,
     color: '#999',
     textAlign: 'center',
-    lineHeight: 11,
   },
   progressLabelActive: {
     color: '#FF6B6B',
     fontWeight: '600',
   },
   progressLine: {
-    flex: 1,
     height: 2,
-    marginHorizontal: -5,
-    marginBottom: 18,
+    flex: 1,
+    marginHorizontal: -10,
   },
-
-  // RESTAURANT CARD STYLES
-  card: { 
-    marginHorizontal: 16, 
-    borderRadius: 16, 
-    backgroundColor: '#FFFFFF', 
+  h2: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 8,
+    marginBottom: 8,
+  },
+  catItem: {
+    width: '25%',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  catImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    marginBottom: 6,
+  },
+  catLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     overflow: 'hidden',
+    marginHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
-  cardImage: { width: '100%', height: 160 },
-  cardBody: { padding: 12 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#333' },
-  cardSubtitle: { fontSize: 12, marginTop: 2, color: '#666' },
-  metaRow: { flexDirection: 'row', marginTop: 6, alignItems: 'center' },
-  ratingPill: { 
-    backgroundColor: '#E0FFE0', 
-    paddingHorizontal: 6, 
-    paddingVertical: 2, 
-    borderRadius: 4 
+  cardImage: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#F5F5F5',
   },
-  ratingText: { fontSize: 10, fontWeight: '700', color: '#4CAF50' },
-  dot: { fontSize: 12, marginHorizontal: 6, color: '#999' },
-  priceText: { fontSize: 12, color: '#999' },
-  badgeRow: { flexDirection: 'row', gap: 4, marginTop: 6 },
-  badge: { 
-    backgroundColor: '#FFEB3B', 
-    borderRadius: 4, 
-    paddingHorizontal: 4 
+  cardBody: {
+    padding: 14,
   },
-  badgeText: { fontSize: 10, color: '#333' },
-  deliveryCollectionRow: { 
-    flexDirection: 'row', 
-    marginTop: 6, 
-    gap: 10, 
-    alignItems: 'center' 
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 4,
   },
-  deliveryIndicator: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 4 
+  cardSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 10,
   },
-  deliveryText: { fontSize: 10, color: '#4CAF50' },
-  collectionIndicator: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 4 
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
-  collectionText: { fontSize: 10, color: '#FF9800' },
-  envNote: { marginTop: 6, fontSize: 10, color: '#999' },
-  loadingContainer: { marginTop: 20 },
 });

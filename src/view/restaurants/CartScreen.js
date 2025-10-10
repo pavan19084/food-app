@@ -4,9 +4,10 @@ import {
   Image, SafeAreaView, Modal, TextInput, Switch, Platform
 } from "react-native";
 import { colors } from "../../constants/colors";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 import { useOrder } from "../../context/OrderContext";
+import { useCart } from "../../context/CartContext";
 import { Order } from "../../models/order";
 import { addOrder } from "../../api/order";
 import { getAllAddresses } from "../../api/address";
@@ -16,11 +17,9 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 
 export default function CartScreen({ navigation, route }) {
   const { user } = useAuth();
-  const { setOrderPlaced } = useOrder();
+  const { setOrderPlaced, activeOrder } = useOrder();
+  const { cart, removeFromCart, addToCart, clearCart, getTotalItems, getTotalPrice } = useCart();
   const alert = useAlert();
-
-  const { cartItems = [], restaurantName, restaurantData , restaurantId} = route?.params || {};
-  const [items, setItems] = useState(cartItems);
 
   const [selectedPayment, setSelectedPayment] = useState("card");
   const [selectedDeliveryType, setSelectedDeliveryType] = useState("delivery");
@@ -28,7 +27,11 @@ export default function CartScreen({ navigation, route }) {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
-  // Get restaurant capabilities
+  const restaurantName = cart.restaurantName;
+  const restaurantData = cart.restaurantData;
+  const restaurantId = cart.restaurantId;
+  const items = cart.items;
+
   const capabilities = restaurantData;
 
   // Load user addresses on mount
@@ -44,7 +47,6 @@ export default function CartScreen({ navigation, route }) {
       const result = await getAllAddresses();
       
       if (result.success && result.data && result.data.length > 0) {
-        // Select the first address by default
         setSelectedLocation(result.data[0]);
       } else {
         alert.show({
@@ -75,8 +77,8 @@ export default function CartScreen({ navigation, route }) {
   React.useEffect(() => {
     if (capabilities) {
       if (!capabilities.deliveryAvailable && capabilities.collectionAvailable) {
-        setSelectedDeliveryType("takeaway");
-      } else if (capabilities.deliveryAvailable && !capabilities.pickupAvailable) {
+        setSelectedDeliveryType("collection");
+      } else if (capabilities.deliveryAvailable && !capabilities.collectionAvailable) {
         setSelectedDeliveryType("delivery");
       }
     }
@@ -122,7 +124,6 @@ export default function CartScreen({ navigation, route }) {
   };
 
   const saveNotes = () => {
-    // Just close; values already live in state
     setNoteModalVisible(false);
   };
 
@@ -137,68 +138,29 @@ export default function CartScreen({ navigation, route }) {
     const first = noteTags[0] || customNote.trim();
     return count > 1 ? `"${first}" +${count - 1} more` : `"${first}"`;
   };
-  
-
-  const suggestions = [
-    {
-      id: 1,
-      name: "Veggie Strips - 5 Pcs",
-      price: 2.5,
-      originalPrice: 2.99,
-      image:
-        "https://images.unsplash.com/photo-1573225342350-16731dd9bf3d?w=120&h=120&fit=crop&auto=format",
-      isVeg: true,
-    },
-    {
-      id: 2,
-      name: "BK Veg Pizza Puff",
-      price: 2.75,
-      originalPrice: 3.25,
-      image:
-        "https://images.unsplash.com/photo-1585231536566-c095266c7e56?w=120&h=120&fit=crop&auto=format",
-      isVeg: true,
-    },
-    {
-      id: 3,
-      name: "Masala Fries",
-      price: 3.5,
-      originalPrice: 4.0,
-      image:
-        "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=120&h=120&fit=crop&auto=format",
-      isVeg: true,
-    },
-  ];
 
   const updateQuantity = (id, change) => {
-    setItems((prevItems) =>
-      prevItems
-        .map((item) => {
-          if (item.id === id) {
-            const newQuantity = Math.max(0, item.quantity + change);
-            if (newQuantity === 0) return null;
-            return { ...item, quantity: newQuantity };
-          }
-          return item;
-        })
-        .filter(Boolean)
-    );
-  };
+    const item = items.find(i => i.id === id);
+    if (!item) return;
 
-  const addSuggestionToCart = (suggestion) => {
-    const existing = items.find((i) => i.name === suggestion.name);
-    if (existing) {
-      updateQuantity(existing.id, 1);
+    if (change > 0) {
+      addToCart(item, {
+        restaurantId,
+        restaurantName,
+        restaurantImage: cart.restaurantImage,
+        restaurantData
+      });
     } else {
-      setItems((prev) => [...prev, { ...suggestion, quantity: 1 }]);
+      removeFromCart(id);
     }
   };
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = getTotalPrice();
   const deliveryFee = selectedDeliveryType === "delivery" ? 1.5 : 0;
   const taxes = subtotal * 0.05;
   const total = subtotal;
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = getTotalItems();
 
   // Show loading state while loading addresses
   if (isLoadingLocation) {
@@ -222,12 +184,9 @@ export default function CartScreen({ navigation, route }) {
         {/* Restaurant Header */}
         <View style={[styles.restaurantInfo, { elevation: 2, shadowOpacity: 0.06 }]}>
           <View style={styles.restaurantHeader}>
-            <Text style={styles.restaurantName}>{restaurantName}</Text>
+            <Text style={styles.restaurantName}>Your Cart</Text>
             <Text style={styles.restaurantSubtitle}>Your cart is empty</Text>
           </View>
-          <TouchableOpacity style={styles.shareButton}>
-            <Ionicons name="share-outline" size={20} color={colors.text} />
-          </TouchableOpacity>
         </View>
 
         {/* Empty Cart Content */}
@@ -240,9 +199,9 @@ export default function CartScreen({ navigation, route }) {
             </Text>
             <TouchableOpacity 
               style={styles.backToRestaurantBtn}
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.navigate('Home')}
             >
-              <Text style={styles.backToRestaurantText}>Back to Restaurant</Text>
+              <Text style={styles.backToRestaurantText}>Browse Restaurants</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -267,11 +226,21 @@ export default function CartScreen({ navigation, route }) {
   );
 
   const handlePlaceOrder = async () => {
+    // Check for active order
+    if (activeOrder) {
+      alert.show({
+        title: 'Order in Progress',
+        message: 'You already have an active order. Please wait for it to complete before placing a new one.',
+        buttons: [{ text: 'OK', onPress: () => {} }],
+      });
+      return;
+    }
+
     // Gate only here: if not logged in, open Login modal with redirect
     if (!user) {
       navigation.navigate("Login", {
         next: "Cart",
-        nextParams: { cartItems: items, restaurantName, restaurantData },
+        nextParams: { },
       });
       return;
     }
@@ -303,7 +272,6 @@ export default function CartScreen({ navigation, route }) {
             return parts.length > 0 ? parts.join(', ') : null;
           })();
 
-
       // Prepare order data for API
       const orderData = {
         user_id: user.id.toString(),
@@ -313,10 +281,10 @@ export default function CartScreen({ navigation, route }) {
         total_price: total,
         payment_type: selectedPayment,
         order_type: selectedDeliveryType,
-        special_instructions: specialInstructions
+        special_instructions: specialInstructions,
+        restaurant_name: restaurantName
       };
       const result = await addOrder(orderData);
-      console.log("result ",result);
 
       if (result.success) {
         // Create order details for the confirmation screen
@@ -341,7 +309,6 @@ export default function CartScreen({ navigation, route }) {
           specialInstructions: specialInstructions,
           createdAt: new Date().toISOString(),
           status: result.data.status,
-          // API response fields
           id: result.data.id,
           order_id: result.data.order_id,
           user_id: user.id,
@@ -352,6 +319,9 @@ export default function CartScreen({ navigation, route }) {
           order_type: selectedDeliveryType,
           special_instructions: specialInstructions
         };
+
+        // Clear cart after successful order
+        clearCart();
 
         // Set order in context and navigate to confirmation
         setOrderPlaced(orderDetails);
@@ -369,8 +339,6 @@ export default function CartScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error("Error placing order:", error);
-      console.error("Error response:", error.response?.data);
-      console.error("Error status:", error.response?.status);
       
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.error || 
@@ -392,10 +360,13 @@ export default function CartScreen({ navigation, route }) {
 
       {/* Restaurant Header */}
       <View style={[styles.restaurantInfo, { elevation: 2, shadowOpacity: 0.06 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12 }}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
         <View style={styles.restaurantHeader}>
           <Text style={styles.restaurantName}>{restaurantName}</Text>
           <Text style={styles.restaurantSubtitle}>
-            45-50 mins to new • 18th Floor, Workspace
+            {totalItems} item{totalItems > 1 ? 's' : ''} in cart
           </Text>
         </View>
       </View>
@@ -419,9 +390,6 @@ export default function CartScreen({ navigation, route }) {
               <Image source={{ uri: item.image }} style={{ width: 56, height: 56, borderRadius: 6, marginRight: 10 }} />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
-                <TouchableOpacity>
-                  <Text style={styles.editText}>Edit ▶</Text>
-                </TouchableOpacity>
               </View>
               <View style={styles.itemControls}>
                 <View style={styles.quantityContainer}>
@@ -455,33 +423,32 @@ export default function CartScreen({ navigation, route }) {
             <Text style={styles.addMoreText}>Add more items</Text>
           </TouchableOpacity>
 
-          {/* Add Note (Zomato-like) */}
+          {/* Add Note */}
           <TouchableOpacity
-  style={styles.noteSection}
-  onPress={() => setNoteModalVisible(true)}
->
-  <Ionicons name="document-text-outline" size={20} color={colors.textLight} />
-  <Text
-    style={[
-      styles.noteText,
-      !hasAnyNote && !dontSendNote && { color: colors.textLight }, // faded placeholder
-      hasAnyNote && { color: colors.text },                       // dark for real notes
-      dontSendNote && { color: colors.error || "red" },           // red if "Don't send"
-    ]}
-    numberOfLines={1}
-  >
-    {notePreview()}
-  </Text>
-  <Text
-    style={[
-      styles.dontSendText,
-      dontSendNote && { color: colors.primary, fontWeight: "600" },
-    ]}
-  >
-    {dontSendNote ? "Don't send" : "Edit"}
-  </Text>
-</TouchableOpacity>
-
+            style={styles.noteSection}
+            onPress={() => setNoteModalVisible(true)}
+          >
+            <Ionicons name="document-text-outline" size={20} color={colors.textLight} />
+            <Text
+              style={[
+                styles.noteText,
+                !hasAnyNote && !dontSendNote && { color: colors.textLight },
+                hasAnyNote && { color: colors.text },
+                dontSendNote && { color: colors.error || "red" },
+              ]}
+              numberOfLines={1}
+            >
+              {notePreview()}
+            </Text>
+            <Text
+              style={[
+                styles.dontSendText,
+                dontSendNote && { color: colors.primary, fontWeight: "600" },
+              ]}
+            >
+              {dontSendNote ? "Don't send" : "Edit"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Delivery/Collection Selection */}
@@ -523,7 +490,7 @@ export default function CartScreen({ navigation, route }) {
                   styles.paymentOption,
                   selectedDeliveryType === "collection" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
                 ]}
-                onPress={() => setSelectedDeliveryType("takeaway")}
+                onPress={() => setSelectedDeliveryType("collection")}
               >
                 <View style={styles.paymentLeft}>
                   <Ionicons
@@ -545,7 +512,7 @@ export default function CartScreen({ navigation, route }) {
         )}
 
         {/* Payment Method */}
-        <View className="payment" style={styles.section}>
+        <View style={styles.section}>
           <View style={styles.paymentHeader}>
             <Ionicons name="card-outline" size={20} color={colors.text} />
             <Text style={styles.paymentHeaderText}>Payment Method</Text>
@@ -602,7 +569,7 @@ export default function CartScreen({ navigation, route }) {
 
         {/* Bill Summary */}
         <View style={styles.billSummary}>
-          <View className="row" style={styles.billRow}>
+          <View style={styles.billRow}>
             <Text style={styles.billLabel}>Subtotal</Text>
             <Text style={styles.billValue}>£{subtotal.toFixed(2)}</Text>
           </View>
@@ -728,272 +695,403 @@ export default function CartScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.background, paddingTop: 50 },
-  container: { flex: 1, paddingHorizontal: 15 },
-  restaurantInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  restaurantHeader: { flex: 1 },
-  restaurantName: { fontSize: 18, fontWeight: "bold", color: colors.text },
-  restaurantSubtitle: { fontSize: 12, color: colors.textLight, marginTop: 2 },
-  shareButton: { padding: 8 },
-
-  locationInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    backgroundColor: "#f5f5f5",
-  },
-  locationText: { fontSize: 12, color: colors.textLight, marginLeft: 5 },
-
-  section: { backgroundColor: colors.surface, marginVertical: 5, borderRadius: 8, padding: 15 },
-  cartItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  vegIcon: { width: 16, height: 16, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginRight: 10 },
-  vegDot: { width: 6, height: 6, borderRadius: 3 },
-
-  itemInfo: { flex: 1 },
-  itemName: { fontSize: 14, fontWeight: "500", color: colors.text },
-  editText: { fontSize: 12, color: colors.primary, marginTop: 2 },
-
-  itemControls: { alignItems: "flex-end" },
-  quantityContainer: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#ddd", borderRadius: 4, marginBottom: 5 },
-  quantityBtn: { paddingHorizontal: 10, paddingVertical: 5 },
-  quantityBtnText: { fontSize: 16, fontWeight: "bold", color: colors.text },
-  quantityText: { fontSize: 14, fontWeight: "500", minWidth: 30, textAlign: "center", color: colors.text },
-  itemPrice: { fontSize: 12, color: colors.text },
-
-  addMoreBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#f0f0f0" },
-  addMoreText: { fontSize: 14, color: colors.primary, marginLeft: 8, fontWeight: "500" },
-
-  // NOTE ROW
-  noteSection: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#f0f0f0" },
-  noteText: { 
-    flex: 1, 
-    fontSize: 14, 
-    color: colors.primary, // was colors.text
-    marginLeft: 10 
-  },
-  
-  dontSendText: { fontSize: 12, color: colors.textLight },
-
-  // Payments
-  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-  sectionTitle: { fontSize: 14, fontWeight: "500", color: colors.text, marginLeft: 8 },
-
-  suggestionsScroll: { marginHorizontal: -8, paddingHorizontal: 8 },
-  suggestionCard: {
-    width: 140,
-    marginHorizontal: 8,
+  safeArea: {
+    flex: 1,
     backgroundColor: colors.background,
-    borderRadius: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  restaurantInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  restaurantHeader: {
+    flex: 1,
+  },
+  restaurantName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  restaurantSubtitle: {
+    fontSize: 13,
+    color: colors.textLight,
+    marginTop: 4,
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    gap: 8,
+  },
+  locationText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textLight,
+  },
+  container: {
+    flex: 1,
+  },
+  section: {
+    backgroundColor: '#fff',
+    marginTop: 8,
+    padding: 16,
+  },
+  cartItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  vegIcon: {
+    width: 16,
+    height: 16,
+    borderWidth: 2,
+    borderRadius: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  vegDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  itemControls: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 4,
+  },
+  quantityBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  quantityBtnText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  quantityText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    minWidth: 20,
+    textAlign: 'center',
+  },
+  itemPrice: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  addMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 12,
     borderWidth: 1,
-    borderColor: "#eee",
-    alignItems: "center",
-    minHeight: 200,
-  },
-  suggestionHeader: { width: "100%", alignItems: "flex-start", marginBottom: 8 },
-  suggestionImage: { width: "100%", height: 70, borderRadius: 6, marginBottom: 8 },
-  suggestionName: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: colors.text,
-    marginBottom: 8,
-    textAlign: "center",
-    height: 32,
-    lineHeight: 16,
-  },
-  suggestionPricing: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 6 },
-  suggestionPrice: { fontSize: 13, fontWeight: "bold", color: colors.text },
-  suggestionOriginalPrice: { fontSize: 11, color: colors.textLight, textDecorationLine: "line-through", marginLeft: 6 },
-  customizable: { fontSize: 10, color: colors.textLight, marginBottom: 10, textAlign: "center" },
-  addBtn: { backgroundColor: colors.secondary, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 4, alignItems: "center", minWidth: 60 },
-  addBtnText: { fontSize: 11, fontWeight: "bold", color: colors.textWhite },
-
-  paymentHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#f0f0f0" },
-  paymentHeaderText: { fontSize: 14, fontWeight: "500", color: colors.text, marginLeft: 10 },
-  paymentOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    marginVertical: 5,
+    borderColor: colors.primary,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#eee",
-    backgroundColor: colors.background,
+    borderStyle: 'dashed',
+    marginBottom: 16,
   },
-  paymentLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
-  paymentTitle: { fontSize: 14, fontWeight: "500", color: colors.text, marginLeft: 12 },
-  deliveryOptionText: { flex: 1 },
-  deliverySubtitle: { fontSize: 12, color: colors.textLight, marginLeft: 12, marginTop: 2 },
-  radioButton: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.textLight, alignItems: "center", justifyContent: "center" },
-  radioButtonSelected: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
-
-  billSummary: { backgroundColor: colors.surface, marginVertical: 5, borderRadius: 8, padding: 15 },
-  billRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5 },
-  billLabel: { fontSize: 13, color: colors.text },
-  billValue: { fontSize: 13, color: colors.text, fontWeight: "500" },
-  totalRow: { borderTopWidth: 1, borderTopColor: "#eee", marginTop: 5, paddingTop: 10 },
-  totalLabel: { fontSize: 14, fontWeight: "bold", color: colors.text },
-  totalValue: { fontSize: 14, fontWeight: "bold", color: colors.text },
-
-  orderBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.success,
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+  addMoreText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
-  orderTotal: { flex: 1 },
-  orderTotalText: { fontSize: 12, color: colors.textWhite, fontWeight: "bold" },
-  orderAmount: { fontSize: 16, color: colors.textWhite, fontWeight: "bold" },
-  placeOrderBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 6 },
-  placeOrderText: { fontSize: 14, fontWeight: "bold" },
-
-  // Empty cart styles
-  emptyCartContainer: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    paddingHorizontal: 20 
+  noteSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    gap: 10,
   },
-  emptyCartContent: { 
-    alignItems: "center", 
-    maxWidth: 300 
-  },
-  emptyCartTitle: { 
-    fontSize: 24, 
-    fontWeight: "bold", 
-    color: colors.text, 
-    marginTop: 20, 
-    marginBottom: 10 
-  },
-  emptyCartSubtitle: { 
-    fontSize: 16, 
-    color: colors.textLight, 
-    textAlign: "center", 
-    lineHeight: 24, 
-    marginBottom: 30 
-  },
-  backToRestaurantBtn: { 
-    backgroundColor: colors.primary, 
-    paddingHorizontal: 30, 
-    paddingVertical: 12, 
-    borderRadius: 8 
-  },
-  backToRestaurantText: { 
-    color: colors.textWhite, 
-    fontSize: 16, 
-    fontWeight: "bold" 
-  },
-
-  // ------- Notes Modal styles -------
-  modalBackdrop: {
+  noteText: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
+    fontSize: 14,
   },
-  modalSheet: {
-    backgroundColor: "#fff",       // force white modal
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
-    paddingBottom: 20 + (Platform.OS === "ios" ? 20 : 0),
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: -2 },
-    shadowRadius: 6,
-    elevation: 8,
+  dontSendText: {
+    fontSize: 13,
+    color: colors.textLight,
   },
-  
-  modalGrabber: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#E0E0E0",
-    alignSelf: "center",
+  paymentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  paymentHeaderText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  paymentOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 10,
     marginBottom: 10,
   },
+  paymentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  paymentTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  deliveryOptionText: {
+    flex: 1,
+  },
+  deliverySubtitle: {
+    fontSize: 12,
+    color: colors.textLight,
+    marginTop: 2,
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonSelected: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.primary,
+  },
+  billSummary: {
+    backgroundColor: '#fff',
+    marginTop: 8,
+    padding: 16,
+  },
+  billRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  billLabel: {
+    fontSize: 14,
+    color: colors.textLight,
+  },
+  billValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  totalRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingTop: 12,
+    marginTop: 4,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  orderBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  orderTotal: {
+    flex: 1,
+  },
+  orderTotalText: {
+    fontSize: 12,
+    color: colors.textLight,
+    fontWeight: '600',
+  },
+  orderAmount: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 2,
+  },
+  placeOrderBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 8,
+  },
+  placeOrderText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  emptyCartContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyCartTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 20,
+  },
+  emptyCartSubtitle: {
+    fontSize: 14,
+    color: colors.textLight,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  backToRestaurantBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+  backToRestaurantText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalGrabber: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
   modalHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  modalTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
-  modalSubtitle: { fontSize: 13, fontWeight: "600", color: colors.text, marginTop: 6, marginBottom: 8 },
-
-  tagsWrap: { flexDirection: "row", flexWrap: "wrap" },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 10,
+  },
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   tagChip: {
-    borderWidth: 1,
-    borderColor: "#E6E6E6",
-    borderRadius: 18,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 20,
   },
-  tagText: { fontSize: 12, color: colors.text },
-
+  tagText: {
+    fontSize: 13,
+    color: colors.textLight,
+  },
   noteInput: {
     borderWidth: 1,
-    borderColor: "#E6E6E6",
+    borderColor: '#e0e0e0',
     borderRadius: 10,
-    minHeight: 70,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    padding: 12,
+    fontSize: 14,
     color: colors.text,
-    backgroundColor: colors.background,
-    textAlignVertical: "top",
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
-  charCount: { fontSize: 11, color: colors.textLight, alignSelf: "flex-end", marginTop: 4 },
-
+  charCount: {
+    fontSize: 12,
+    color: colors.textLight,
+    textAlign: 'right',
+    marginTop: 6,
+  },
   toggleRow: {
-    marginTop: 8,
-    paddingVertical: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 20,
   },
-  toggleLabel: { fontSize: 14, color: colors.text },
-
+  toggleLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
   modalActions: {
-    marginTop: 10,
-    flexDirection: "row",
-    justifyContent: "flex-end",
+    flexDirection: 'row',
+    gap: 12,
   },
   modalBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginLeft: 8,
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
   },
   clearBtn: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: "#E6E6E6",
+    backgroundColor: '#f5f5f5',
   },
-  saveBtn: { backgroundColor: colors.primary },
-  modalBtnText: { fontSize: 14, fontWeight: "600" },
-  loadingContainer: { 
-    flex: 1, 
-    alignItems: "center", 
-    justifyContent: "center" 
+  saveBtn: {
+    backgroundColor: colors.primary,
+  },
+  modalBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

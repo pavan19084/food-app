@@ -15,6 +15,11 @@ export class Restaurant {
     this.createdBy = data.created_by;
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
+    this.cardPaymentEnabled = data.card_payment_enabled === 1;
+    this.cashPaymentEnabled = data.cash_payment_enabled === 1;
+    this.deliveryEnabled = data.delivery_enabled === 1;
+    this.takeawayEnabled = data.takeaway_enabled === 1;
+    this.isOnline = data.is_online === 1;
   }
 
   // Helper methods
@@ -30,7 +35,8 @@ export class Restaurant {
     if (!this.profileImage) {
       return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&h=500&fit=crop&auto=format';
     }
-    return `http://31.97.56.234:3000/${this.profileImage}`;
+    // Use Upload_URL from client.js
+    return `${require('../api/client').Upload_URL}${this.profileImage.startsWith('/') ? '' : '/'}${this.profileImage}`;
   }
 
   
@@ -45,8 +51,11 @@ export class Restaurant {
       envNote: `Delicious ${this.getCuisineString().toLowerCase()} cuisine`,
       onTap: 'Restaurant',
       category: this.cuisine[0]?.toLowerCase() || 'restaurant',
-      deliveryAvailable: true, // Default to true
-      collectionAvailable: true, // Default to true
+      deliveryAvailable: this.deliveryEnabled,
+      collectionAvailable: this.takeawayEnabled,
+      cardPaymentAvailable: this.cardPaymentEnabled,
+      cashOnDeliveryAvailable: this.cashPaymentEnabled,
+      isOnline: this.isOnline,
       restaurantData: this
     };
   }

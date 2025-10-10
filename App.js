@@ -23,9 +23,9 @@ import OrderHistoryScreen from "./src/view/OrderHistoryScreen";
 import LocationModal from "./src/components/LocationModal";
 import SplashScreen from "./src/components/SplashScreen";
 
-
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { OrderProvider } from "./src/context/OrderContext";
+import { CartProvider } from "./src/context/CartContext"; // ADD THIS LINE
 
 const Stack = createStackNavigator();
 
@@ -115,7 +115,9 @@ export default function App() {
   return (
     <AuthProvider onLoggedOut={() => {}}>
       <OrderProvider>
-        <AppContent />
+        <CartProvider>
+          <AppContent />
+        </CartProvider>
       </OrderProvider>
     </AuthProvider>
   );
