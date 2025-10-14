@@ -6,8 +6,9 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 
 export default function Profile({ navigation }) {
@@ -15,8 +16,9 @@ export default function Profile({ navigation }) {
 
   // Safely map fields (AuthContext user has: id, username, email, phone)
   const ratingNum = Number(user?.rating ?? 0);
-  const completionNum = Number(user?.completion ?? (user ? 60 : 30)); // arbitrary default
-  const avatarUri = user?.avatar || 'https://i.pravatar.cc/150?img=12';
+  const completionNum = Number(user?.completion ?? (user ? 60 : 30));
+  const avatarUri = user?.avatar || null;
+
 
   const safeUser = {
     name: user?.name || user?.username || 'Guest',
@@ -61,7 +63,11 @@ export default function Profile({ navigation }) {
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            <Image source={{ uri: safeUser.avatar }} style={styles.avatar} />
+            {safeUser.avatar ? (
+              <Image source={{ uri: safeUser.avatar }} style={styles.avatar} />
+            ) : (
+              <Ionicons name="person-circle" size={80} color="#E64A19" />
+            )}
             <View style={styles.profileInfo}>
               <Text style={styles.userName}>{safeUser.name}</Text>
               <Text style={styles.userEmail}>{safeUser.email}</Text>
@@ -143,8 +149,6 @@ export default function Profile({ navigation }) {
             {/* Library */}
             <Section title="Library" />
             <Card>
-              <Item title="Your Collections" onPress={() => {}} />
-              <Divider />
               <Item title="Order History" onPress={() => navigation.navigate('OrderHistory')} />
               <Divider />
               <Item title="Saved Addresses" onPress={() => navigation.navigate('SavedAddresses')} />
@@ -208,7 +212,6 @@ function Divider() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1,
-    paddingTop: 50,
   },
   header: {
     flexDirection: 'row',

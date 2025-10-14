@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../context/AuthContext";
-import CustomAlert from "../components/CustomAlert"; // your custom alert
+import CustomAlert from "../components/CustomAlert";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function EditProfile({ route, navigation }) {
   const { user: ctxUser, saveProfile } = useAuth();
@@ -23,7 +24,7 @@ export default function EditProfile({ route, navigation }) {
     phone: ctxUser?.phone || "",
     dob: ctxUser?.dob || "",
     gender: ctxUser?.gender || "",
-    avatar: ctxUser?.avatar || "https://i.pravatar.cc/150?img=12",
+    avatar: ctxUser?.avatar || null,
   };
 
   const [formData, setFormData] = useState({ ...initial });
@@ -160,13 +161,34 @@ export default function EditProfile({ route, navigation }) {
             style={styles.imageContainer}
             onPress={() => setShowImageModal(true)}
           >
-            <Image
-              source={{ uri: formData.avatar }}
-              style={styles.profileImage}
-            />
-            <View style={styles.imageOverlay}>
-              <Text style={styles.imageOverlayText}>Change</Text>
-            </View>
+            {formData.avatar ? (
+              <>
+                <Image
+                  source={{ uri: formData.avatar }}
+                  style={styles.profileImage}
+                />
+                <View style={styles.imageOverlay}>
+                  <Text style={styles.imageOverlayText}>Change</Text>
+                </View>
+              </>
+            ) : (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="person-circle" size={100} color="#E64A19" />
+                <Text
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    color: "#FFF",
+                    paddingHorizontal: 10,
+                    borderBottomLeftRadius: 10,
+                    borderBottomRightRadius: 10,
+                  }}
+                >
+                  Change
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -211,25 +233,6 @@ export default function EditProfile({ route, navigation }) {
               placeholderTextColor="#999"
               style={styles.input}
             />
-          </View>
-
-          {/* Date of Birth */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Date of Birth</Text>
-            <TouchableOpacity
-              style={styles.dateInput}
-              onPress={() => setShowDateModal(true)}
-            >
-              <Text
-                style={[
-                  styles.dateInputText,
-                  { color: formData.dob ? "#333" : "#999" },
-                ]}
-              >
-                {formData.dob || "Select your date of birth"}
-              </Text>
-              <Text style={styles.dateInputIcon}>📅</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Gender */}
@@ -363,18 +366,17 @@ export default function EditProfile({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
-    paddingTop: 50,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowColor: "rgba(0,0,0,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -383,22 +385,22 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  backButtonText: { fontSize: 24, fontWeight: '600' },
-  headerTitle: { 
+  backButtonText: { fontSize: 24, fontWeight: "600" },
+  headerTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   saveButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#E64A19', // Terracotta color
+    backgroundColor: "#E64A19", // Terracotta color
   },
-  saveButtonText: { 
+  saveButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   scrollView: { flex: 1, paddingHorizontal: 16 },
 
@@ -409,19 +411,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 20,
     marginBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  sectionTitle: { 
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16, 
-    alignSelf: 'flex-start' 
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 16,
+    alignSelf: "flex-start",
   },
   imageContainer: {
-    position: 'relative',
+    position: "relative",
     borderRadius: 50,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   profileImage: {
     width: 100,
@@ -429,17 +431,17 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   imageOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     paddingVertical: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  imageOverlayText: { 
+  imageOverlayText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
+    fontWeight: "600",
+    color: "#FFF",
   },
 
   // Section
@@ -452,11 +454,11 @@ const styles = StyleSheet.create({
 
   // Input Groups
   inputGroup: { marginBottom: 20 },
-  label: { 
+  label: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8 
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
@@ -464,72 +466,72 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 50,
     fontSize: 16,
-    color: '#333',
-    backgroundColor: '#F7FAFC',
-    borderColor: '#E2E8F0',
+    color: "#333",
+    backgroundColor: "#F7FAFC",
+    borderColor: "#E2E8F0",
   },
   dateInput: {
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F7FAFC',
-    borderColor: '#E2E8F0',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F7FAFC",
+    borderColor: "#E2E8F0",
   },
-  dateInputText: { 
+  dateInputText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
-  dateInputIcon: { fontSize: 20, color: '#E64A19' },
+  dateInputIcon: { fontSize: 20, color: "#E64A19" },
   genderInput: {
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F7FAFC',
-    borderColor: '#E2E8F0',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F7FAFC",
+    borderColor: "#E2E8F0",
   },
-  genderInputText: { 
+  genderInputText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
-  genderInputIcon: { fontSize: 16, fontWeight: '600', color: '#E64A19' },
+  genderInputIcon: { fontSize: 16, fontWeight: "600", color: "#E64A19" },
 
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   modalContent: {
     borderRadius: 16,
     borderWidth: 1,
     padding: 24,
-    width: '100%',
+    width: "100%",
     maxWidth: 320,
-    backgroundColor: '#FFF',
-    borderColor: '#E2E8F0',
+    backgroundColor: "#FFF",
+    borderColor: "#E2E8F0",
   },
-  modalTitle: { 
+  modalTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16, 
-    textAlign: 'center' 
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 16,
+    textAlign: "center",
   },
-  modalSubtitle: { 
+  modalSubtitle: {
     fontSize: 14,
-    color: '#999',
-    marginBottom: 20, 
-    textAlign: 'center' 
+    color: "#999",
+    marginBottom: 20,
+    textAlign: "center",
   },
   dateTextInput: {
     borderWidth: 1,
@@ -537,22 +539,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 50,
     fontSize: 16,
-    color: '#333',
-    backgroundColor: '#F7FAFC',
-    borderColor: '#E2E8F0',
+    color: "#333",
+    backgroundColor: "#F7FAFC",
+    borderColor: "#E2E8F0",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalButton: {
     borderRadius: 12,
     paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: '#E64A19',
+    alignItems: "center",
+    backgroundColor: "#E64A19",
   },
-  modalButtonText: { 
+  modalButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
+    fontWeight: "600",
+    color: "#FFF",
   },
 
   // Gender Options
@@ -562,10 +564,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  genderOptionText: { 
+  genderOptionText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
 });

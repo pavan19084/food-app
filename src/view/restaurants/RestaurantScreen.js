@@ -336,7 +336,6 @@ export default function RestaurantScreen({ navigation, route }) {
         </View>
       </ScrollView>
 
-      {/* Checkout Bar - Only show if cart has items from THIS restaurant */}
       {totalItems > 0 && cart.restaurantId === restaurantId && (
         <View style={styles.cartBar}>
           <View>
@@ -345,7 +344,6 @@ export default function RestaurantScreen({ navigation, route }) {
               <Text style={[styles.cartPrice, { fontSize: 16 }]}>
                 £ {totalPrice.toFixed(2)}
               </Text>
-              <Text style={styles.cartTaxes}> plus taxes</Text>
             </View>
           </View>
           <TouchableOpacity

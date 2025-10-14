@@ -1,21 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   ScrollView,
   ActivityIndicator,
   StatusBar,
   SafeAreaView,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { LocationService } from '../utils/locationService';
-import { colors } from '../constants/colors';
-import { updateAddress } from '../api/address';
-import { useAlert } from '../hooks/useAlert';
-import CustomAlert from '../components/CustomAlert';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { LocationService } from "../utils/locationService";
+import { colors } from "../constants/colors";
+import { updateAddress } from "../api/address";
+import { useAlert } from "../hooks/useAlert";
+import CustomAlert from "../components/CustomAlert";
 
 export default function AddAddressScreen({ route }) {
   const navigation = useNavigation();
@@ -27,39 +28,43 @@ export default function AddAddressScreen({ route }) {
   const [isPincodeLoading, setIsPincodeLoading] = useState(false);
 
   const [newAddress, setNewAddress] = useState({
-    addressline1: editMode ? (addressData?.addressline1 || '') : '', 
-    addressline2: editMode ? (addressData?.addressline2 || '') : '',
-    area: editMode ? (addressData?.area || '') : '',
-    state: editMode ? (addressData?.state || '') : '',
-    country: 'india',
-    city: editMode ? (addressData?.city || '') : '',
-    latitude: editMode ? (addressData?.latitude || '') : '',
-    longitude: editMode ? (addressData?.longitude || '') : '',
-    deliveryInstructions: editMode ? (addressData?.delivery_instructions || '') : '',
-    pincode: editMode ? (addressData?.pincode || '') : '',
+    addressline1: editMode ? addressData?.addressline1 || "" : "",
+    addressline2: editMode ? addressData?.addressline2 || "" : "",
+    area: editMode ? addressData?.area || "" : "",
+    state: editMode ? addressData?.state || "" : "",
+    country: "india",
+    city: editMode ? addressData?.city || "" : "",
+    latitude: editMode ? addressData?.latitude || "" : "",
+    longitude: editMode ? addressData?.longitude || "" : "",
+    deliveryInstructions: editMode
+      ? addressData?.delivery_instructions || ""
+      : "",
+    pincode: editMode ? addressData?.pincode || "" : "",
   });
-  
+
   const [formErrors, setFormErrors] = useState({});
 
   const handlePincodeChange = async (pincode) => {
-    setNewAddress(prev => ({ ...prev, pincode }));
-    
+    setNewAddress((prev) => ({ ...prev, pincode }));
+
     if (pincode.length === 6) {
       setIsPincodeLoading(true);
       try {
-        const cityState = await LocationService.getCityStateFromPincode(pincode);
-        setNewAddress(prev => ({
+        const cityState = await LocationService.getCityStateFromPincode(
+          pincode
+        );
+        setNewAddress((prev) => ({
           ...prev,
           city: cityState.city,
           state: cityState.state,
         }));
       } catch (error) {
         alert.show({
-          title: 'Invalid Pincode',
-          message: 'Please enter a valid 6-digit pincode.',
-          buttons: [{ text: 'OK', onPress: () => {} }]
+          title: "Invalid Pincode",
+          message: "Please enter a valid 6-digit pincode.",
+          buttons: [{ text: "OK", onPress: () => {} }],
         });
-        setNewAddress(prev => ({ ...prev, city: '', state: '' }));
+        setNewAddress((prev) => ({ ...prev, city: "", state: "" }));
       } finally {
         setIsPincodeLoading(false);
       }
@@ -70,16 +75,16 @@ export default function AddAddressScreen({ route }) {
     setIsUpdatingLocation(true);
     try {
       const location = await LocationService.updateLocation();
-      setNewAddress(prev => ({
+      setNewAddress((prev) => ({
         ...prev,
-        latitude: String(location.latitude ?? ''),
-        longitude: String(location.longitude ?? ''),
+        latitude: String(location.latitude ?? ""),
+        longitude: String(location.longitude ?? ""),
         pincode: location.postalCode || prev.pincode,
         city: location.city || prev.city,
         state: location.state || prev.state,
-        addressline1: prev.addressline1 || location.street || '',
+        addressline1: prev.addressline1 || location.street || "",
       }));
-      setFormErrors(prev => ({
+      setFormErrors((prev) => ({
         ...prev,
         pincode: null,
         city: null,
@@ -87,9 +92,9 @@ export default function AddAddressScreen({ route }) {
       }));
     } catch (error) {
       alert.show({
-        title: 'Location Error',
-        message: 'Unable to get current location. Please check permissions.',
-        buttons: [{ text: 'OK', onPress: () => {} }]
+        title: "Location Error",
+        message: "Unable to get current location. Please check permissions.",
+        buttons: [{ text: "OK", onPress: () => {} }],
       });
     } finally {
       setIsUpdatingLocation(false);
@@ -98,20 +103,20 @@ export default function AddAddressScreen({ route }) {
 
   const validateForm = () => {
     const errors = {};
-    
+
     if (!newAddress.addressline1.trim()) {
-      errors.addressline1 = 'Floor/Street is required';
+      errors.addressline1 = "Floor/Street is required";
     }
     if (!newAddress.pincode.trim()) {
-      errors.pincode = 'Pincode is required';
+      errors.pincode = "Pincode is required";
     }
     if (!newAddress.city.trim()) {
-      errors.city = 'City is required';
+      errors.city = "City is required";
     }
     if (!newAddress.state.trim()) {
-      errors.state = 'State is required';
+      errors.state = "State is required";
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -119,9 +124,9 @@ export default function AddAddressScreen({ route }) {
   const handleAddAddress = async () => {
     if (!validateForm()) {
       alert.show({
-        title: 'Missing Information',
-        message: 'Please fill in all required fields marked with *.',
-        buttons: [{ text: 'OK', onPress: () => {} }]
+        title: "Missing Information",
+        message: "Please fill in all required fields marked with *.",
+        buttons: [{ text: "OK", onPress: () => {} }],
       });
       return;
     }
@@ -144,37 +149,37 @@ export default function AddAddressScreen({ route }) {
       if (editMode) {
         await updateAddress(addressData.id, addressData);
         alert.show({
-          title: 'Success',
-          message: 'Address updated successfully!',
-          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }]
+          title: "Success",
+          message: "Address updated successfully!",
+          buttons: [{ text: "OK", onPress: () => navigation.goBack() }],
         });
       } else {
         await LocationService.saveAddress(addressData);
         alert.show({
-          title: 'Success',
-          message: 'Address added successfully!',
-          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }]
+          title: "Success",
+          message: "Address added successfully!",
+          buttons: [{ text: "OK", onPress: () => navigation.goBack() }],
         });
       }
 
       setNewAddress({
-        addressline1: '',
-        addressline2: '',
-        area: '',
-        state: '',
-        country: 'india',
-        city: '',
-        latitude: '',
-        longitude: '',
-        deliveryInstructions: '',
-        pincode: '',
+        addressline1: "",
+        addressline2: "",
+        area: "",
+        state: "",
+        country: "india",
+        city: "",
+        latitude: "",
+        longitude: "",
+        deliveryInstructions: "",
+        pincode: "",
       });
       setFormErrors({});
     } catch (error) {
       alert.show({
-        title: 'Error',
-        message: 'Failed to save address. Please try again.',
-        buttons: [{ text: 'OK', onPress: () => {} }]
+        title: "Error",
+        message: "Failed to save address. Please try again.",
+        buttons: [{ text: "OK", onPress: () => {} }],
       });
     } finally {
       setIsAddingAddress(false);
@@ -184,7 +189,7 @@ export default function AddAddressScreen({ route }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -193,7 +198,9 @@ export default function AddAddressScreen({ route }) {
         >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{editMode ? 'Edit Address' : 'Add New Address'}</Text>
+        <Text style={styles.headerTitle}>
+          {editMode ? "Edit Address" : "Add New Address"}
+        </Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -210,13 +217,172 @@ export default function AddAddressScreen({ route }) {
             <Ionicons name="navigate" size={20} color={colors.primary} />
           )}
           <Text style={styles.currentLocationText}>
-            {isUpdatingLocation ? 'Detecting your location...' : '📍 Use my current location'}
+            {isUpdatingLocation
+              ? "Detecting your location..."
+              : "📍 Use my current location"}
           </Text>
         </TouchableOpacity>
 
-        {/* Form Fields */}
-        {/* ... all your form UI remains unchanged ... */}
+        <View style={styles.formContainer}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              Floor/Street <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                formErrors.addressline1 && styles.errorInput,
+              ]}
+              placeholder="House/Flat number, Street name"
+              placeholderTextColor="#999"
+              value={newAddress.addressline1}
+              onChangeText={(text) => {
+                setNewAddress((prev) => ({ ...prev, addressline1: text }));
+                if (formErrors.addressline1) {
+                  setFormErrors((prev) => ({ ...prev, addressline1: null }));
+                }
+              }}
+            />
+            {formErrors.addressline1 && (
+              <Text style={styles.errorText}>{formErrors.addressline1}</Text>
+            )}
+          </View>
 
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Landmark</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Near hospital, school, mall, etc. (Optional)"
+              placeholderTextColor="#999"
+              value={newAddress.addressline2}
+              onChangeText={(text) =>
+                setNewAddress((prev) => ({ ...prev, addressline2: text }))
+              }
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Area</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Area/Locality"
+              placeholderTextColor="#999"
+              value={newAddress.area}
+              onChangeText={(text) =>
+                setNewAddress((prev) => ({ ...prev, area: text }))
+              }
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              Pincode <Text style={styles.required}>*</Text>
+            </Text>
+            <View style={styles.pincodeContainer}>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  formErrors.pincode && styles.errorInput,
+                ]}
+                placeholder="Enter 6-digit pincode"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+                maxLength={6}
+                value={newAddress.pincode}
+                onChangeText={(text) => {
+                  handlePincodeChange(text);
+                  if (formErrors.pincode) {
+                    setFormErrors((prev) => ({ ...prev, pincode: null }));
+                  }
+                }}
+              />
+              {isPincodeLoading && (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                  style={styles.pincodeLoader}
+                />
+              )}
+            </View>
+            {formErrors.pincode && (
+              <Text style={styles.errorText}>{formErrors.pincode}</Text>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              City <Text style={styles.required}>*</Text>
+              <Text style={styles.autoFilled}>(Auto-filled from pincode)</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                styles.disabledInput,
+                formErrors.city && styles.errorInput,
+              ]}
+              placeholder="Auto-filled from pincode"
+              placeholderTextColor="#999"
+              value={newAddress.city}
+              editable={false}
+            />
+            {formErrors.city && (
+              <Text style={styles.errorText}>{formErrors.city}</Text>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              State <Text style={styles.required}>*</Text>
+              <Text style={styles.autoFilled}>(Auto-filled from pincode)</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                styles.disabledInput,
+                formErrors.state && styles.errorInput,
+              ]}
+              placeholder="Auto-filled from pincode"
+              placeholderTextColor="#999"
+              value={newAddress.state}
+              editable={false}
+            />
+            {formErrors.state && (
+              <Text style={styles.errorText}>{formErrors.state}</Text>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Delivery Instructions</Text>
+            <TextInput
+              style={[styles.textInput, styles.multilineInput]}
+              placeholder="Special delivery instructions (optional)"
+              placeholderTextColor="#999"
+              value={newAddress.deliveryInstructions}
+              onChangeText={(text) =>
+                setNewAddress((prev) => ({
+                  ...prev,
+                  deliveryInstructions: text,
+                }))
+              }
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleAddAddress}
+            disabled={isAddingAddress}
+          >
+            {isAddingAddress ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.addButtonText}>
+                {editMode ? "Update Address" : "Add Address"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Custom Alert */}
@@ -237,9 +403,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: colors.surface,
@@ -251,7 +417,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.text,
   },
   placeholder: {
@@ -262,16 +428,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   currentLocationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8F9FF",
     marginTop: 20,
     marginBottom: 20,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#E8F0FF',
+    borderColor: "#E8F0FF",
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
@@ -279,8 +445,8 @@ const styles = StyleSheet.create({
   },
   currentLocationText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#4A5568',
+    fontWeight: "600",
+    color: "#4A5568",
     marginLeft: 12,
   },
   formContainer: {
@@ -294,18 +460,18 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
     marginBottom: 10,
   },
   required: {
     color: colors.primary,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   autoFilled: {
     fontSize: 12,
     color: colors.textLight,
-    fontWeight: 'normal',
+    fontWeight: "normal",
   },
   errorInput: {
     borderColor: colors.primary,
@@ -315,31 +481,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     marginTop: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   textInput: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: "#F8F8F8",
     borderRadius: 12,
     paddingHorizontal: 18,
     paddingVertical: 14,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: "#E0E0E0",
     color: colors.text,
   },
   disabledInput: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: "#F0F0F0",
     color: colors.textLight,
   },
   multilineInput: {
     height: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   pincodeContainer: {
-    position: 'relative',
+    position: "relative",
   },
   pincodeLoader: {
-    position: 'absolute',
+    position: "absolute",
     right: 16,
     top: 12,
   },
@@ -347,12 +513,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: 18,
     borderRadius: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 12,
   },
   addButtonText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textWhite,
     letterSpacing: 0.5,
   },
