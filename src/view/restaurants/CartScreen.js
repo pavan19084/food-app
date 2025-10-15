@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect ,useRef } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
-  Image, SafeAreaView, Modal, TextInput, Switch, Platform
+  Image, SafeAreaView, Modal, TextInput, Switch, Platform , Animated
 } from "react-native";
 import { colors } from "../../constants/colors";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,6 +26,8 @@ export default function CartScreen({ navigation, route }) {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
 
   const restaurantName = cart.restaurantName;
   const restaurantData = cart.restaurantData;
@@ -45,29 +47,12 @@ export default function CartScreen({ navigation, route }) {
     try {
       setIsLoadingLocation(true);
       const result = await getAllAddresses();
-      
-      if (result.success && result.data && result.data.length > 0) {
-        setSelectedLocation(result.data[0]);
-      } else {
-        alert.show({
-          title: 'No Address Found',
-          message: 'Please add an address before placing an order.',
-          buttons: [
-            { 
-              text: 'Add Address', 
-              onPress: () => navigation.navigate('AddAddressScreen') 
-            },
-            { text: 'Cancel', onPress: () => navigation.goBack() }
-          ]
-        });
+      if (result.success && result.data.length > 0) {
+        setAddresses(result.data);
+        if (!selectedLocation) setSelectedLocation(result.data[0]);
       }
-    } catch (error) {
-      console.error('Error loading addresses:', error);
-      alert.show({
-        title: 'Error',
-        message: 'Failed to load addresses. Please try again.',
-        buttons: [{ text: 'OK', onPress: () => {} }]
-      });
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsLoadingLocation(false);
     }
@@ -88,14 +73,13 @@ export default function CartScreen({ navigation, route }) {
   React.useEffect(() => {
     if (capabilities) {
       if (!capabilities.cardPaymentAvailable && capabilities.cashOnDeliveryAvailable) {
-        setSelectedPayment("cod");
+        setSelectedPayment("cash");
       } else if (capabilities.cardPaymentAvailable && !capabilities.cashOnDeliveryAvailable) {
         setSelectedPayment("card");
       }
     }
   }, [capabilities]);
 
-  // ---------- Zomato-like Notes ----------
   const QUICK_NOTE_TAGS = [
     "No onions",
     "Less spicy",
@@ -139,6 +123,11 @@ export default function CartScreen({ navigation, route }) {
     return count > 1 ? `"${first}" +${count - 1} more` : `"${first}"`;
   };
 
+  const openAddressModal = async () => {
+    await loadUserAddresses();
+    setAddressModalVisible(true);
+  };
+
   const updateQuantity = (id, change) => {
     const item = items.find(i => i.id === id);
     if (!item) return;
@@ -157,7 +146,6 @@ export default function CartScreen({ navigation, route }) {
 
   const subtotal = getTotalPrice();
   const deliveryFee = selectedDeliveryType === "delivery" ? 1.5 : 0;
-  const taxes = subtotal * 0.05;
   const total = subtotal;
 
   const totalItems = getTotalItems();
@@ -228,6 +216,7 @@ export default function CartScreen({ navigation, route }) {
   const handlePlaceOrder = async () => {
     // Check for active order
     if (activeOrder) {
+
       alert.show({
         title: 'Order in Progress',
         message: 'You already have an active order. Please wait for it to complete before placing a new one.',
@@ -272,6 +261,7 @@ export default function CartScreen({ navigation, route }) {
             return parts.length > 0 ? parts.join(', ') : null;
           })();
 
+      const apiOrderType = selectedDeliveryType === "collection" ? "takeaway" : selectedDeliveryType;
       // Prepare order data for API
       const orderData = {
         user_id: user.id.toString(),
@@ -280,7 +270,7 @@ export default function CartScreen({ navigation, route }) {
         items: Order.formatCartItemsForApi(items),
         total_price: total,
         payment_type: selectedPayment,
-        order_type: selectedDeliveryType,
+        order_type: apiOrderType,
         special_instructions: specialInstructions,
         restaurant_name: restaurantName
       };
@@ -359,27 +349,37 @@ export default function CartScreen({ navigation, route }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
       {/* Restaurant Header */}
-      <View style={[styles.restaurantInfo, { elevation: 2, shadowOpacity: 0.06 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12 }}>
+      <View style={styles.restaurantInfo}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.restaurantHeader}>
           <Text style={styles.restaurantName}>{restaurantName}</Text>
-          <Text style={styles.restaurantSubtitle}>
-            {totalItems} item{totalItems > 1 ? 's' : ''} in cart
-          </Text>
+          <Text style={styles.restaurantSubtitle}>{totalItems} item{totalItems > 1 ? "s" : ""} in cart</Text>
         </View>
       </View>
 
-      {/* Location Info */}
-      {selectedLocation && (
-        <View style={styles.locationInfo}>
-          <Ionicons name="location-outline" size={16} color={colors.textLight} />
-          <Text style={styles.locationText}>
-            {selectedLocation.addressline1}, {selectedLocation.area}, {selectedLocation.city}
-          </Text>
-        </View>
-      )}
+        {/* Delivery Address Bar */}
+        {selectedLocation && (
+          <TouchableOpacity 
+            style={styles.deliveryAddressBar}
+            onPress={openAddressModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.addressBarLeft}>
+              <View style={styles.locationIconContainer}>
+                <Ionicons name="location" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.addressBarText}>
+                <Text style={styles.addressBarLabel}>Deliver to</Text>
+                <Text style={styles.addressBarAddress} numberOfLines={1}>
+                  {selectedLocation.addressline1}, {selectedLocation.area}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-down" size={20} color={colors.textLight} />
+          </TouchableOpacity>
+        )}
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Cart Items */}
@@ -544,15 +544,15 @@ export default function CartScreen({ navigation, route }) {
             <TouchableOpacity
               style={[
                 styles.paymentOption,
-                selectedPayment === "cod" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+                selectedPayment === "cash" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
               ]}
-              onPress={() => setSelectedPayment("cod")}
+              onPress={() => setSelectedPayment("cash")}
             >
               <View style={styles.paymentLeft}>
                 <Ionicons
                   name="cash-outline"
                   size={20}
-                  color={selectedPayment === "cod" ? colors.primary : colors.textLight}
+                  color={selectedPayment === "cash" ? colors.primary : colors.textLight}
                 />
                 <Text style={styles.paymentTitle}>
                   {selectedDeliveryType === "collection"
@@ -560,8 +560,8 @@ export default function CartScreen({ navigation, route }) {
                     : "Cash on Delivery"}
                 </Text>
               </View>
-              <View style={[styles.radioButton, selectedPayment === "cod" && { borderColor: colors.primary }]}>
-                {selectedPayment === "cod" && <View style={styles.radioButtonSelected} />}
+              <View style={[styles.radioButton, selectedPayment === "cash" && { borderColor: colors.primary }]}>
+                {selectedPayment === "cash" && <View style={styles.radioButtonSelected} />}
               </View>
             </TouchableOpacity>
           )}
@@ -579,10 +579,6 @@ export default function CartScreen({ navigation, route }) {
               <Text style={styles.billValue}>£{deliveryFee.toFixed(2)}</Text>
             </View>
           )}
-          <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Taxes</Text>
-            <Text style={styles.billValue}>£{taxes.toFixed(2)}</Text>
-          </View>
           <View style={[styles.billRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>£{total.toFixed(2)}</Text>
@@ -608,6 +604,100 @@ export default function CartScreen({ navigation, route }) {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Address Selection Modal */}
+      <Modal
+        visible={addressModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAddressModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity 
+            style={styles.modalBackdropTouchable} 
+            activeOpacity={1} 
+            onPress={() => setAddressModalVisible(false)}
+          />
+          <View style={styles.addressModalSheet}>
+            <View style={styles.modalGrabber} />
+            
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Select Delivery Address</Text>
+              <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              style={styles.addressModalScroll}
+            >
+              {/* Add New Address Button */}
+              <TouchableOpacity 
+                style={styles.addNewAddressCard}
+                onPress={() => {
+                  setAddressModalVisible(false);
+                  navigation.navigate("AddAddressScreen");
+                }}
+              >
+                <View style={styles.addIconCircle}>
+                  <Ionicons name="add" size={24} color={colors.primary} />
+                </View>
+                <Text style={styles.addNewAddressText}>Add New Address</Text>
+              </TouchableOpacity>
+
+              {/* Saved Addresses */}
+              {addresses.length > 0 && (
+                <Text style={styles.savedAddressesLabel}>SAVED ADDRESSES</Text>
+              )}
+              
+              {addresses.map((addr) => {
+                const isSelected = selectedLocation?.id === addr.id;
+                return (
+                  <TouchableOpacity
+                    key={addr.id}
+                    style={[
+                      styles.addressCard,
+                      isSelected && styles.addressCardSelected
+                    ]}
+                    onPress={() => {
+                      setSelectedLocation(addr);
+                      setAddressModalVisible(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.addressCardLeft}>
+                      <View style={[
+                        styles.addressIconCircle,
+                        isSelected && styles.addressIconCircleSelected
+                      ]}>
+                        <Ionicons 
+                          name={isSelected ? "checkmark-circle" : "location"} 
+                          size={20} 
+                          color={isSelected ? colors.primary : colors.textLight} 
+                        />
+                      </View>
+                      <View style={styles.addressCardText}>
+                        <Text style={styles.addressCardTitle}>
+                          {addr.addressline1}
+                        </Text>
+                        <Text style={styles.addressCardSubtitle}>
+                          {addr.area}, {addr.city}
+                        </Text>
+                      </View>
+                    </View>
+                    {isSelected && (
+                      <View style={styles.selectedBadge}>
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Notes Modal */}
       <Modal
@@ -707,10 +797,14 @@ const styles = StyleSheet.create({
   restaurantInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+  },
+  backButton: {
+    marginRight: 12,
   },
   restaurantHeader: {
     flex: 1,
@@ -724,6 +818,43 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textLight,
     marginTop: 4,
+  },
+  deliveryAddressBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  addressBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  locationIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addressBarText: {
+    flex: 1,
+  },
+  addressBarLabel: {
+    fontSize: 12,
+    color: colors.textLight,
+    fontWeight: '500',
+  },
+  addressBarAddress: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+    marginTop: 2,
   },
   locationInfo: {
     flexDirection: 'row',
@@ -1093,5 +1224,105 @@ const styles = StyleSheet.create({
   modalBtnText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  modalBackdropTouchable: {
+    flex: 1,
+  },
+  addressModalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    maxHeight: '75%',
+  },
+  addressModalScroll: {
+    marginTop: 12,
+  },
+  addNewAddressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'rgba(76, 175, 80, 0.06)',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    marginBottom: 20,
+  },
+  addIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  addNewAddressText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  savedAddressesLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textLight,
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  addressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  addressCardSelected: {
+    backgroundColor: 'rgba(76, 175, 80, 0.06)',
+    borderColor: colors.primary,
+  },
+  addressCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  addressIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  addressIconCircleSelected: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  addressCardText: {
+    flex: 1,
+  },
+  addressCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  addressCardSubtitle: {
+    fontSize: 13,
+    color: colors.textLight,
+  },
+  selectedBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

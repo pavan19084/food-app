@@ -22,6 +22,7 @@ import AddAddressScreen from "./src/view/AddAddressScreen";
 import OrderHistoryScreen from "./src/view/OrderHistoryScreen";
 import LocationModal from "./src/components/LocationModal";
 import SplashScreen from "./src/components/SplashScreen";
+import OrderDetails from "./src/view/OrderDetails";
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { OrderProvider } from "./src/context/OrderContext";
@@ -37,6 +38,7 @@ function MainStack() {
       <Stack.Screen name="Profile" component={Profile} />
       <Stack.Screen name="EditProfile" component={EditProfile} />
       <Stack.Screen name="Restaurant" component={RestaurantScreen} />
+      <Stack.Screen name="OrderDetails" component={OrderDetails} />
       <Stack.Screen
         name="Cart"
         component={CartScreen}

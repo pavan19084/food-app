@@ -4,14 +4,13 @@ import client from './client';
 export const addOrder = async (orderData) => {
   try {
     const { data } = await client.post('/user/order/add', orderData);
-    console.log(data);
     return {
       success: true,
       data: data,
       message: data.message || 'Order placed successfully'
     };
   } catch (error) {
-    console.log(error)
+    console.error('Error adding order:', error);
     return {
       success: false,
       data: null,
@@ -24,7 +23,6 @@ export const addOrder = async (orderData) => {
 export const trackOrder = async (orderId) => {
   try {
     const { data } = await client.get(`/user/order/${orderId}`);
-
     return {
       success: true,
       data: data,

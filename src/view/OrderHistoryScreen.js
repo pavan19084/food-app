@@ -35,7 +35,6 @@ export default function OrderHistoryScreen({ navigation }) {
     try {
       setIsLoading(true);
       const result = await getUserOrders(user.id);
-      
       if (result.success && result.data) {
         const orderObjects = result.data.map(orderData => Order.createFromApiResponse(orderData));
         setOrders(orderObjects);
@@ -67,10 +66,7 @@ export default function OrderHistoryScreen({ navigation }) {
   };
 
   const handleOrderPress = (order) => {
-    navigation.navigate('OrderConfirmation', { 
-      orderDetails: order,
-      isHistoryView: true 
-    });
+    navigation.navigate('OrderDetails', { order });
   };
 
   const getStatusColor = (status) => {
@@ -142,7 +138,7 @@ export default function OrderHistoryScreen({ navigation }) {
       </View>
 
       <View style={styles.orderFooter}>
-        <Text style={styles.totalAmount}>£{item.total.toFixed(2)}</Text>
+        <Text style={styles.totalAmount}>£{item.total}</Text>
         <Ionicons name="chevron-forward" size={20} color={colors.lightMode.textLight} />
       </View>
     </TouchableOpacity>

@@ -64,7 +64,7 @@ const LocationModal = ({ navigation, route }) => {
         onPress: async () => {
           try {
             await LocationService.deleteAddress(addressId);
-            await loadSavedAddresses(); // reload after delete
+            await loadSavedAddresses();
           } catch (error) {
             Alert.alert('Error', 'Failed to delete address.');
           }

@@ -8,12 +8,14 @@ import {
   StatusBar,
   SafeAreaView,
   ActivityIndicator,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllAddresses } from '../api/address';
 import { Address } from '../models/address';
 import { colors } from '../constants/colors';
 import CustomAlert from '../components/CustomAlert';
+import { LocationService } from '../utils/locationService';
 
 export default function SavedAddressesScreen({ navigation }) {
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -53,40 +55,35 @@ export default function SavedAddressesScreen({ navigation }) {
       setIsLoading(false);
     }
   };
-
-  const handleDeleteAddress = async (addressId) => {
-    showAlert(
-      'Delete Address',
-      'Are you sure you want to delete this address?',
-      [
-        { text: 'Cancel', onPress: () => setAlertVisible(false) },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            try {
-              await LocationService.deleteAddress(addressId);
-              await loadSavedAddresses();
-            } catch (error) {
-              showAlert('Error', 'Failed to delete address.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleSetDefault = async (addressId) => {
-    try {
-      await LocationService.setDefaultAddress(addressId);
-      await loadSavedAddresses();
-    } catch (error) {
-      showAlert('Error', 'Failed to set default address.');
-    }
-  };
-
+  
   const handleEditAddress = (address) => {
-    showAlert('Info', 'Edit functionality coming soon!');
+    navigation.navigate('AddAddressScreen', {
+      editMode: true,
+      addressData: address,
+    });
   };
+
+const handleDeleteAddress = async (addressId) => {
+  Alert.alert(
+    'Delete Address',
+    'Are you sure you want to delete this address?',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await LocationService.deleteAddress(addressId);
+            await loadSavedAddresses(); // refresh list after delete
+          } catch (error) {
+            Alert.alert('Error', 'Failed to delete address.');
+          }
+        },
+      },
+    ]
+  );
+};
 
   const renderAddressItem = ({ item }) => {
 
@@ -126,16 +123,6 @@ export default function SavedAddressesScreen({ navigation }) {
             <Ionicons name="create-outline" size={16} color="#666" />
             <Text style={styles.actionButtonText}>Edit</Text>
           </TouchableOpacity>
-
-          {!item.isDefault && (
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleSetDefault(item.id)}
-            >
-              <Ionicons name="star-outline" size={16} color="#666" />
-              <Text style={styles.actionButtonText}>Set Default</Text>
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
@@ -360,10 +347,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   addressHeader: {
     flexDirection: 'row',
@@ -422,6 +407,7 @@ const styles = StyleSheet.create({
   },
   addressActions: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
