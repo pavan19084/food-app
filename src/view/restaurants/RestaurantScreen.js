@@ -10,12 +10,13 @@ import { useAlert } from "../../hooks/useAlert";
 import { useCart } from "../../context/CartContext";
 import CustomAlert from "../../components/CustomAlert";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { getFullImageUrl } from "../../utils/imageUrl";
 
 // MenuItem component
 const MenuItem = ({ item, quantity, increment, decrement }) => {
   return (
     <View style={styles.item}>
-      <Image source={{ uri: item.image }} style={styles.itemImage} />
+      <Image source={{ uri: getFullImageUrl(item.image) }} style={styles.itemImage} />
       <View style={styles.itemDetails}>
         <Text style={styles.itemName}>{item.name}</Text>
         <Text style={styles.itemDesc} numberOfLines={2}>

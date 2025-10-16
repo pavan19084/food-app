@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export class Order {
   constructor(orderData) {
@@ -12,25 +12,36 @@ export class Order {
     this.totalPrice = orderData.total_price || orderData.total;
     this.paymentType = orderData.payment_type;
     this.orderType = orderData.order_type;
-    this.status = orderData.status || 'pending';
+    this.status = orderData.status || "pending";
     this.deliveryTime = orderData.delivery_time;
     this.specialInstructions = orderData.special_instructions;
     this.cancellationReason = orderData.cancellation_reason;
     this.createdAt = orderData.created_at || orderData.createdAt;
     this.updatedAt = orderData.updated_at || orderData.updatedAt;
-    this.restaurantName =
-      orderData.restaurantName ||
-      orderData.restaurant_name ||
-      (orderData.restaurant && orderData.restaurant.name);
+
+    this.restaurantName = orderData.restaurant.name;
+    this.restaurant = orderData.restaurant;
+    this.user_location = orderData.user_location;
     this.restaurantContact = orderData.restaurantContact;
     this.total = parseFloat(this.totalPrice) || 0;
+    this.subtotal = parseFloat(orderData.subtotal) || 0;
+    this.deliveryFee = parseFloat(orderData.delivery_fee) || 0;
+    this.discount = parseFloat(orderData.discount) || 0;
     this.deliveryType = this.orderType;
     this.deliveryAddress = orderData.deliveryAddress;
     this.estimatedDelivery = orderData.estimatedDelivery;
-    this.paymentMethod = this.paymentType === 'card' ? 'Card Payment' : 'Cash on Delivery';
+    this.paymentMethod =
+      this.paymentType === "card" ? "Card Payment" : "Cash on Delivery";
     this.orderTime = this.formatTime(this.createdAt);
     this.orderDate = this.formatDate(this.createdAt);
-    
+
+    // Ensure items have numeric price and quantity
+    this.items = (orderData.items || []).map((item) => ({
+      ...item,
+      price: parseFloat(item.price) || 0,
+      quantity: parseInt(item.quantity) || 0,
+    }));
+
     // Calculated fields
     this.estimatedDeliveryTime = this.calculateEstimatedDeliveryTime();
     this.remainingTime = this.calculateRemainingTime();
@@ -46,6 +57,23 @@ export class Order {
     if (!dateString) return new Date().toLocaleDateString();
     return new Date(dateString).toLocaleDateString();
   }
+
+  formatAddress(location) {
+  if (!location) return 'Address not available';
+  
+  const parts = [
+    location.addressline1,
+    location.addressline2,
+    location.area,
+    location.city,
+    location.state,
+    location.pincode,
+    location.country
+  ].filter(Boolean);
+  
+  return parts.join(', ');
+}
+
 
   // Calculate estimated delivery time in minutes
   calculateEstimatedDeliveryTime() {
@@ -70,9 +98,11 @@ export class Order {
   // Get formatted remaining time
   getFormattedRemainingTime() {
     const remaining = this.calculateRemainingTime();
-    if (remaining === null) return 'Time not available';
+    if (remaining === null) return "Time not available";
     if (remaining <= 0) {
-      return this.deliveryType === 'delivery' ? 'Delivered' : 'Ready for collection';
+      return this.deliveryType === "delivery"
+        ? "Delivered"
+        : "Ready for collection";
     }
     return `${remaining} min left`;
   }
@@ -110,31 +140,31 @@ export class Order {
   async saveToStorage() {
     try {
       const orders = await Order.getAllOrders();
-      const existingIndex = orders.findIndex(order => order.id === this.id);
-      
+      const existingIndex = orders.findIndex((order) => order.id === this.id);
+
       if (existingIndex >= 0) {
         orders[existingIndex] = this;
       } else {
         orders.push(this);
       }
-      
-      await AsyncStorage.setItem('@orders', JSON.stringify(orders));
+
+      await AsyncStorage.setItem("@orders", JSON.stringify(orders));
     } catch (error) {
-      console.error('Error saving order:', error);
+      console.error("Error saving order:", error);
     }
   }
 
   // Get all orders from AsyncStorage
   static async getAllOrders() {
     try {
-      const ordersData = await AsyncStorage.getItem('@orders');
+      const ordersData = await AsyncStorage.getItem("@orders");
       if (ordersData) {
         const orders = JSON.parse(ordersData);
-        return orders.map(orderData => new Order(orderData));
+        return orders.map((orderData) => new Order(orderData));
       }
       return [];
     } catch (error) {
-      console.error('Error getting orders:', error);
+      console.error("Error getting orders:", error);
       return [];
     }
   }
@@ -143,17 +173,13 @@ export class Order {
   static async getActiveOrder() {
     try {
       const orders = await Order.getAllOrders();
-      const activeOrders = orders.filter(order => 
-        order.status !== 'delivered' && order.calculateRemainingTime() > 0
-      );
-      
-      if (activeOrders.length > 0) {
-        // Return the most recent active order
-        return activeOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-      }
-      return null;
+      const activeOrders = orders.find((o) => o.isActive());
+      return activeOrders;
     } catch (error) {
-      console.error('Error getting active order:', error);
+      console.error(
+        "Order.getActiveOrder: Error retrieving active order:",
+        error
+      );
       return null;
     }
   }
@@ -172,46 +198,57 @@ export class Order {
 
   // Convert cart items to API format
   static formatCartItemsForApi(cartItems) {
-    return cartItems.map(item => {
-      
+    return cartItems.map((item) => {
       return {
         item_id: item.itemId || item.id || item.item_id,
         name: item.name,
         quantity: item.quantity,
-        price: item.price
+        price: item.price,
       };
     });
   }
 
-
   // Get order status display text (dynamic based on orderType)
   getStatusDisplayText() {
-    const isCollection = this.orderType === 'collection';
+    const isCollection = this.orderType === "collection";
 
     const statusMap = {
-      pending: 'Order Pending',
-      confirmed: 'Order Confirmed',
-      preparing: 'Preparing',
-      delivery: isCollection ? 'Ready for Collection' : 'Out for Delivery',
-      delivered: isCollection ? 'Collected' : 'Delivered',
-      cancelled: 'Cancelled'
+      pending: "Order Pending",
+      confirmed: "Order Confirmed",
+      preparing: "Preparing",
+      delivery: isCollection ? "Ready for Collection" : "Out for Delivery",
+      delivered: isCollection ? "Collected" : "Delivered",
+      cancelled: "Cancelled",
     };
 
     return statusMap[this.status] || this.status;
   }
 
-
   // Check if order is active (not delivered or cancelled)
   isActive() {
-    return this.status !== 'delivered' && this.status !== 'cancelled';
+    return this.status !== "delivered" && this.status !== "cancelled";
   }
 
   // Clear all orders (for testing)
   static async clearAllOrders() {
     try {
-      await AsyncStorage.removeItem('@orders');
+      await AsyncStorage.removeItem("@orders");
     } catch (error) {
-      console.error('Error clearing orders:', error);
+      console.error("Error clearing orders:", error);
+    }
+  }
+  static async removeActiveOrder() {
+    try {
+      const activeOrder = await Order.getActiveOrder();
+      if (activeOrder) {
+        const orders = await Order.getAllOrders();
+        const updatedOrders = orders.filter(
+          (order) => order.id !== activeOrder.id
+        );
+        await AsyncStorage.setItem("@orders", JSON.stringify(updatedOrders));
+      }
+    } catch (error) {
+      console.error("Error removing active order:", error);
     }
   }
 }

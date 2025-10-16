@@ -5,9 +5,9 @@ import React, {
   useCallback,
   useEffect,
   useRef,
-} from 'react';
-import { Order } from '../models/order';
-import { trackOrder } from '../api/order';
+} from "react";
+import { Order } from "../models/order";
+import { trackOrder } from "../api/order";
 
 const OrderContext = createContext();
 
@@ -30,9 +30,12 @@ export const OrderProvider = ({ children }) => {
       if (localOrder) {
         setActiveOrder(localOrder);
         setShowOrderNotification(true);
+      } else {
+        setActiveOrder(null);
+        setShowOrderNotification(false);
       }
     } catch (error) {
-      console.error('Error loading active order:', error);
+      console.error("Error loading active order:", error);
     }
   };
   const startPolling = useCallback((order) => {
@@ -44,20 +47,23 @@ export const OrderProvider = ({ children }) => {
         const result = await trackOrder(order.orderId);
         if (!result || !result.success || !result.data) return;
         const updated = Order.createFromApiResponse(result.data);
+        const finalStatuses = ["delivered", "cancelled", "collected"];
+        if (finalStatuses.includes((updated.status || "").toLowerCase())) {
+          stopPolling();
+          setShowOrderNotification(false);
+          await Order.removeActiveOrder();
+          setActiveOrder(null);
+          return;
+        }
+
         if (updated.saveToStorage) {
           await updated.saveToStorage();
         }
 
         setActiveOrder(updated);
         setShowOrderNotification(updated.isActive());
-        const finalStatuses = ['delivered', 'cancelled', 'collected'];
-        if (finalStatuses.includes((updated.status || '').toLowerCase())) {
-          stopPolling();
-          setShowOrderNotification(false);
-          setActiveOrder(updated); 
-        }
       } catch (err) {
-        console.error('Error polling order status:', err);
+        console.error("Error polling order status:", err);
       }
     };
 
@@ -80,21 +86,24 @@ export const OrderProvider = ({ children }) => {
     }
   }, [activeOrder, startPolling, stopPolling]);
 
-  const setOrderPlaced = useCallback(async (orderDetails) => {
-    try {
-      const order = Order.createFromOrderDetails(orderDetails);
-      setActiveOrder(order);
-      setShowOrderNotification(true);
+  const setOrderPlaced = useCallback(
+    async (orderDetails) => {
+      try {
+        const order = Order.createFromOrderDetails(orderDetails);
+        setActiveOrder(order);
+        setShowOrderNotification(true);
 
-      startPolling(order);
+        startPolling(order);
 
-      setTimeout(() => {
-        setShowOrderNotification(false);
-      }, 300000); // 5 minutes
-    } catch (error) {
-      console.error('Error setting order placed:', error);
-    }
-  }, [startPolling]);
+        setTimeout(() => {
+          setShowOrderNotification(false);
+        }, 300000); // 5 minutes
+      } catch (error) {
+        console.error("Error setting order placed:", error);
+      }
+    },
+    [startPolling]
+  );
 
   const dismissNotification = useCallback(() => {
     setShowOrderNotification(false);
@@ -102,27 +111,15 @@ export const OrderProvider = ({ children }) => {
 
   const clearActiveOrder = useCallback(async () => {
     try {
-      if (activeOrder) {
-        // mark delivered locally and persist
-        if (typeof activeOrder.updateStatus === 'function') {
-          activeOrder.updateStatus('delivered');
-        } else {
-          // fallback: set property + save
-          activeOrder.status = 'delivered';
-          if (typeof activeOrder.saveToStorage === 'function') {
-            await activeOrder.saveToStorage();
-          }
-        }
-      }
       stopPolling();
+      await Order.removeActiveOrder();
       setActiveOrder(null);
       setShowOrderNotification(false);
     } catch (error) {
-      console.error('Error clearing active order:', error);
+      console.error("Error clearing active order:", error);
     }
-  }, [activeOrder, stopPolling]);
+  }, [stopPolling]);
 
-  // Force refresh (one-off). Useful for pull-to-refresh or manual triggers.
   const refreshOrderStatus = useCallback(async () => {
     try {
       const local = await Order.getActiveOrder();
@@ -134,7 +131,7 @@ export const OrderProvider = ({ children }) => {
         setShowOrderNotification(false);
       }
     } catch (error) {
-      console.error('Error refreshing order status:', error);
+      console.error("Error refreshing order status:", error);
     }
   }, []);
 
@@ -143,7 +140,7 @@ export const OrderProvider = ({ children }) => {
     return () => {
       stopPolling();
     };
-  }, [stopPolling]);
+  }, [stopPolling, activeOrder]);
 
   const value = {
     activeOrder,
@@ -154,13 +151,15 @@ export const OrderProvider = ({ children }) => {
     refreshOrderStatus,
   };
 
-  return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;
+  return (
+    <OrderContext.Provider value={value}>{children}</OrderContext.Provider>
+  );
 };
 
 export const useOrder = () => {
   const context = useContext(OrderContext);
   if (!context) {
-    throw new Error('useOrder must be used within an OrderProvider');
+    throw new Error("useOrder must be used within an OrderProvider");
   }
   return context;
 };

@@ -22,6 +22,7 @@ import { useAlert } from '../hooks/useAlert';
 import CustomAlert from '../components/CustomAlert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CartFooter from '../components/CartFooter';
+import { DistanceService } from '../utils/distanceService';
 
 const CATEGORY_ITEMS = [
   { id: 'healthy', label: 'Healthy', img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900&h=500&fit=crop&auto=format' },
@@ -153,14 +154,46 @@ const OrderRectangle = ({ order, onPress }) => {
   );
 };
 
-const RestaurantCard = ({ item }) => {
+const RestaurantCard = ({ item, currentLocation }) => {
   const navigation = useNavigation();
+  const [distanceInfo, setDistanceInfo] = useState(null);
+  const [isLoadingDistance, setIsLoadingDistance] = useState(false);
+
+  useEffect(() => {
+    if (currentLocation && item.restaurantData?.latitude && item.restaurantData?.longitude) {
+      calculateDistance();
+    }
+  }, [currentLocation, item]);
+
+  const calculateDistance = async () => {
+    try {
+      setIsLoadingDistance(true);
+      const result = await DistanceService.getRoadDistance(
+        parseFloat(currentLocation.longitude),
+        parseFloat(currentLocation.latitude),
+        parseFloat(item.restaurantData.longitude),
+        parseFloat(item.restaurantData.latitude)
+      );
+      
+      if (result.success) {
+        setDistanceInfo({
+          distance: result.distance,
+          duration: result.duration,
+          fallback: result.fallback || false
+        });
+      }
+    } catch (error) {
+      console.error('Error in calculateDistance:', error);
+    } finally {
+      setIsLoadingDistance(false);
+    }
+  };
+
   const metaIcons = [];
   if (item.deliveryAvailable) metaIcons.push({ name: 'bicycle', label: 'Delivery' });
   if (item.collectionAvailable) metaIcons.push({ name: 'storefront', label: 'Collection' });
   if (item.cardPaymentAvailable) metaIcons.push({ name: 'card', label: 'Card' });
   if (item.cashOnDeliveryAvailable) metaIcons.push({ name: 'cash', label: 'Cash' });
-  if (!item.isOnline) metaIcons.push({ name: 'cloud-offline', label: 'Offline', color: '#FF6B6B' });
 
   const handlePress = () => {
     if (item.onTap) {
@@ -178,15 +211,42 @@ const RestaurantCard = ({ item }) => {
 
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.95}>
-      <Image source={{ uri: item.cover }} style={styles.cardImage} />
+      <View style={styles.cardImageContainer}>
+        <Image source={{ uri: item.cover }} style={styles.cardImage} />
+        
+        {/* Offline Badge */}
+        {!item.isOnline && (
+          <View style={styles.offlineBadge}>
+            <Ionicons name="cloud-offline" size={14} color="#FFFFFF" />
+            <Text style={styles.offlineBadgeText}>Offline</Text>
+          </View>
+        )}
+      </View>
+
       <View style={styles.cardBody}>
         <Text style={styles.cardTitle}>{item.title}</Text>
         <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+        
+        {/* Distance and Time Info - Swiggy Style */}
+        {distanceInfo && (
+          <View style={styles.distanceInfoRow}>
+            <Ionicons name="information-circle-outline" size={16} color="#02A357" />
+            <Text style={styles.distanceInfoText}>
+              {distanceInfo.distance} km
+            </Text>
+            <Text style={styles.distanceInfoDot}>•</Text>
+            <Text style={styles.distanceInfoText}>
+              {distanceInfo.duration} mins
+            </Text>
+          </View>
+        )}
+
+        {/* Meta Icons Row */}
         <View style={styles.metaRow}>
           {metaIcons.map((icon, idx) => (
             <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
-              <Ionicons name={icon.name + '-outline'} size={18} color={icon.color || '#666'} />
-              <Text style={{ fontSize: 12, color: icon.color || '#666', marginLeft: 4 }}>{icon.label}</Text>
+              <Ionicons name={icon.name + '-outline'} size={18} color="#666" />
+              <Text style={{ fontSize: 12, color: '#666', marginLeft: 4 }}>{icon.label}</Text>
             </View>
           ))}
         </View>
@@ -445,7 +505,7 @@ export default function Home() {
           <FlatList
             data={filteredRestaurants}
             keyExtractor={it => it.id}
-            renderItem={({ item }) => <RestaurantCard item={item} />}
+            renderItem={({ item }) => <RestaurantCard item={item} currentLocation={currentLocation} />}
             scrollEnabled={false}
             ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
             contentContainerStyle={{ paddingBottom: 12 }}
@@ -472,6 +532,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF8F5',
   },
+  distanceRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 10,
+  gap: 16,
+},
+distanceItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 4,
+},
+distanceText: {
+  fontSize: 13,
+  fontWeight: '600',
+  color: '#FF6B6B',
+},
   locationRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -663,38 +739,80 @@ const styles = StyleSheet.create({
   loadingContainer: {
     paddingVertical: 40,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardImage: {
-    width: '100%',
-    height: 180,
-    backgroundColor: '#F5F5F5',
-  },
-  cardBody: {
-    padding: 14,
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 10,
-  },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
+ card: {
+  backgroundColor: '#FFFFFF',
+  borderRadius: 16,
+  overflow: 'hidden',
+  marginHorizontal: 16,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  elevation: 2,
+},
+cardImageContainer: {
+  position: 'relative',
+  width: '100%',
+  height: 180,
+},
+cardImage: {
+  width: '100%',
+  height: '100%',
+  backgroundColor: '#F5F5F5',
+},
+offlineBadge: {
+  position: 'absolute',
+  top: 12,
+  right: 12,
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(244, 67, 54, 0.95)',
+  paddingHorizontal: 10,
+  paddingVertical: 6,
+  borderRadius: 20,
+  gap: 4,
+},
+offlineBadgeText: {
+  color: '#FFFFFF',
+  fontSize: 12,
+  fontWeight: '600',
+},
+cardBody: {
+  padding: 14,
+},
+cardTitle: {
+  fontSize: 17,
+  fontWeight: '700',
+  color: '#1A1A1A',
+  marginBottom: 4,
+},
+cardSubtitle: {
+  fontSize: 13,
+  color: '#666',
+  marginBottom: 8,
+},
+distanceInfoRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 10,
+  gap: 4,
+},
+distanceInfoText: {
+  fontSize: 13,
+  color: '#02A357',
+  fontWeight: '500',
+},
+distanceInfoDot: {
+  fontSize: 13,
+  color: '#02A357',
+  fontWeight: '700',
+},
+metaRow: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+},
 });
