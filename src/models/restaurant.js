@@ -35,11 +35,9 @@ export class Restaurant {
       : [];
 
     this.categories = data.categories || [];
-  }
-
-  // Helper methods
-  isActive() {
-    return this.status === "active";
+    
+    this.distance = null;
+    this.duration = null;
   }
 
   getCuisineString() {
@@ -53,9 +51,12 @@ export class Restaurant {
     }`;
   }
 
-  getDeliveryCharge(distanceKm) {
+  // ADD THIS METHOD
+  getDeliveryCharge() {
+    if (!this.distance) return null;
+    
     const range = this.deliveryRanges.find(
-      (r) => distanceKm >= r.minKm && distanceKm <= r.maxKm
+      (r) => this.distance >= r.minKm && this.distance <= r.maxKm
     );
     return range ? range.charge : null;
   }
@@ -76,12 +77,14 @@ export class Restaurant {
       cardPaymentAvailable: this.cardPaymentEnabled,
       cashOnDeliveryAvailable: this.cashPaymentEnabled,
       isOnline: this.isOnline,
+      distance: this.distance,
+      duration: this.duration,
+      deliveryCharge: this.getDeliveryCharge(),
       restaurantData: this,
     };
   }
 }
 
-// ✅ Menu classes remain the same
 export class MenuCategory {
   constructor(data) {
     this.categoryId = data.category_id;

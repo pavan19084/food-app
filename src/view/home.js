@@ -117,27 +117,20 @@ const OrderRectangle = ({ order, onPress }) => {
           const isCurrent = index === currentIndex;
 
           return (
-            <React.Fragment key={status}>
-              <View style={styles.progressStep}>
-                <View
-                  style={[
-                    styles.progressDot,
-                    {
-                      backgroundColor: isCompleted || isCurrent ? '#FF6B6B' : '#E0E0E0',
-                      transform: [{ scale: isCurrent ? 1.2 : 1 }],
-                    },
-                  ]}
-                >
-                  {isCompleted && <Ionicons name="checkmark" size={12} color="#fff" />}
-                </View>
-                <Text style={[
-                  styles.progressLabel,
-                  (isCurrent || isCompleted) && styles.progressLabelActive
-                ]}>
-                  {status}
-                </Text>
+            <View key={status} style={styles.progressStep}>
+              <View
+                style={[
+                  styles.progressDot,
+                  {
+                    backgroundColor: isCompleted || isCurrent ? '#FF6B6B' : '#E0E0E0',
+                    transform: [{ scale: isCurrent ? 1.2 : 1 }],
+                  },
+                ]}
+              >
+                {isCompleted && <Ionicons name="checkmark" size={12} color="#fff" />}
               </View>
-
+              
+              {/* Line after dot (except for last item) */}
               {index < statusLabels.length - 1 && (
                 <View
                   style={[
@@ -146,7 +139,14 @@ const OrderRectangle = ({ order, onPress }) => {
                   ]}
                 />
               )}
-            </React.Fragment>
+              
+              <Text style={[
+                styles.progressLabel,
+                (isCurrent || isCompleted) && styles.progressLabelActive
+              ]}>
+                {status}
+              </Text>
+            </View>
           );
         })}
       </View>
@@ -156,38 +156,6 @@ const OrderRectangle = ({ order, onPress }) => {
 
 const RestaurantCard = ({ item, currentLocation }) => {
   const navigation = useNavigation();
-  const [distanceInfo, setDistanceInfo] = useState(null);
-  const [isLoadingDistance, setIsLoadingDistance] = useState(false);
-
-  useEffect(() => {
-    if (currentLocation && item.restaurantData?.latitude && item.restaurantData?.longitude) {
-      calculateDistance();
-    }
-  }, [currentLocation, item]);
-
-  const calculateDistance = async () => {
-    try {
-      setIsLoadingDistance(true);
-      const result = await DistanceService.getRoadDistance(
-        parseFloat(currentLocation.longitude),
-        parseFloat(currentLocation.latitude),
-        parseFloat(item.restaurantData.longitude),
-        parseFloat(item.restaurantData.latitude)
-      );
-      
-      if (result.success) {
-        setDistanceInfo({
-          distance: result.distance,
-          duration: result.duration,
-          fallback: result.fallback || false
-        });
-      }
-    } catch (error) {
-      console.error('Error in calculateDistance:', error);
-    } finally {
-      setIsLoadingDistance(false);
-    }
-  };
 
   const metaIcons = [];
   if (item.deliveryAvailable) metaIcons.push({ name: 'bicycle', label: 'Delivery' });
@@ -227,17 +195,18 @@ const RestaurantCard = ({ item, currentLocation }) => {
         <Text style={styles.cardTitle}>{item.title}</Text>
         <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
         
-        {/* Distance and Time Info - Swiggy Style */}
-        {distanceInfo && (
+        {/* Show distance info if available */}
+        {item.distance && item.duration && (
           <View style={styles.distanceInfoRow}>
             <Ionicons name="information-circle-outline" size={16} color="#02A357" />
             <Text style={styles.distanceInfoText}>
-              {distanceInfo.distance} km
+              {item.distance} km • {item.duration} mins
             </Text>
-            <Text style={styles.distanceInfoDot}>•</Text>
-            <Text style={styles.distanceInfoText}>
-              {distanceInfo.duration} mins
-            </Text>
+            {item.deliveryCharge && (
+              <Text style={styles.distanceInfoText}>
+                {' '}• ₹{item.deliveryCharge}
+              </Text>
+            )}
           </View>
         )}
 
@@ -309,34 +278,59 @@ export default function Home() {
     }
   };
 
-  const loadRestaurants = async () => {
-    try {
-      setIsLoadingRestaurants(true);
-      const result = await getAllRestaurants();
+const loadRestaurants = async () => {
+  try {
+    setIsLoadingRestaurants(true);
+    const result = await getAllRestaurants();
 
-      if (result.success) {
-        const restaurantCards = result.data.map(restaurant => restaurant.toCardData());
-        setRestaurants(restaurantCards);
-      } else {
-        alert.show({
-          title: 'Error',
-          message: result.message || 'Failed to load restaurants',
-          buttons: [{ text: 'OK', onPress: () => { } }]
-        });
-        setRestaurants([]);
+    if (result.success) {
+      const restaurantInstances = result.data;
+      
+      // Calculate distance if location available
+      if (currentLocation) {
+        for (const restaurant of restaurantInstances) {
+          try {
+            const distanceResult = await DistanceService.getRoadDistance(
+              parseFloat(currentLocation.longitude),
+              parseFloat(currentLocation.latitude),
+              parseFloat(restaurant.longitude),
+              parseFloat(restaurant.latitude)
+            );
+            
+            if (distanceResult.success) {
+              restaurant.setDistance(
+                distanceResult.distance,
+                distanceResult.duration
+              );
+            }
+          } catch (error) {
+            console.error(`Distance error for ${restaurant.name}:`, error);
+          }
+        }
       }
-    } catch (error) {
-      console.error('Error loading restaurants:', error);
+      
+      const restaurantCards = restaurantInstances.map(r => r.toCardData());
+      setRestaurants(restaurantCards);
+    } else {
       alert.show({
         title: 'Error',
-        message: 'Failed to load restaurants. Please try again.',
+        message: result.message || 'Failed to load restaurants',
         buttons: [{ text: 'OK', onPress: () => { } }]
       });
       setRestaurants([]);
-    } finally {
-      setIsLoadingRestaurants(false);
     }
-  };
+  } catch (error) {
+    console.error('Error loading restaurants:', error);
+    alert.show({
+      title: 'Error',
+      message: 'Failed to load restaurants. Please try again.',
+      buttons: [{ text: 'OK', onPress: () => { } }]
+    });
+    setRestaurants([]);
+  } finally {
+    setIsLoadingRestaurants(false);
+  }
+};
 
   const handleLocationSelect = (location) => {
     setCurrentLocation(location);
@@ -678,6 +672,7 @@ distanceText: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'relative',
   },
   progressStep: {
     alignItems: 'center',
@@ -690,20 +685,25 @@ distanceText: {
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
+    zIndex : 2
   },
   progressLabel: {
     fontSize: 10,
     color: '#999',
     textAlign: 'center',
+    marginTop: 6,
   },
   progressLabelActive: {
     color: '#FF6B6B',
     fontWeight: '600',
   },
   progressLine: {
+    position: 'absolute',
     height: 2,
-    flex: 1,
-    marginHorizontal: -10,
+    left: '50%',
+    right: '-50%',
+    top: 9,
+    zIndex: 1,
   },
   h2: {
     fontSize: 22,

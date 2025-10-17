@@ -17,13 +17,6 @@ export const patchUser = async (id, payload) => {
   const isFormData = payload instanceof FormData;
   const url = `auth/update/${id}`;
 
-  if (isFormData) {
-    for (let pair of payload.entries()) {
-      console.log(`   ${pair[0]} →`, pair[1]);
-    }
-  } else {
-    console.log("🔹 JSON Payload:", JSON.stringify(payload, null, 2));
-  }
 
   const headers = isFormData
     ? { "Content-Type": "multipart/form-data" }

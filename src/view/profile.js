@@ -37,12 +37,6 @@ export default function Profile({ navigation }) {
     return '#F56565'; // error
   };
 
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log('Profile screen focused, current user:', user);
-    }, [user])
-  );
-
   const handleEdit = () => {
     navigation.navigate('EditProfile', { user: {
       name: safeUser.name,
