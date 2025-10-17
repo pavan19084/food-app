@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState , useEffect} from "react";
 import {
   View,
   Text,
@@ -18,28 +18,35 @@ import { Ionicons } from "@expo/vector-icons";
 export default function EditProfile({ route, navigation }) {
   const { user: ctxUser, saveProfile } = useAuth();
 
-  const initial = route?.params?.user || {
-    name: ctxUser?.name || ctxUser?.username || "",
+  const initial = {
+    username: ctxUser?.username || "",
     email: ctxUser?.email || "",
     phone: ctxUser?.phone || "",
-    dob: ctxUser?.dob || "",
     gender: ctxUser?.gender || "",
-    avatar: ctxUser?.avatar || null,
+    profile: ctxUser?.profile || null,
   };
 
   const [formData, setFormData] = useState({ ...initial });
+  const [profileChanged, setProfileChanged] = useState(false);
+
+  useEffect(() => {
+    setFormData({ ...initial });
+  }, [ctxUser]);
   const [showGenderModal, setShowGenderModal] = useState(false);
-  const [showDateModal, setShowDateModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
 
   // Custom Alert state
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
+  const [alertButtons, setAlertButtons] = useState([]);
 
-  const showAlert = (title, message) => {
+  const showAlert = (title, message, buttons = null) => {
     setAlertTitle(title);
     setAlertMessage(message);
+    setAlertButtons(
+      buttons || [{ text: "OK", onPress: () => setAlertVisible(false) }]
+    );
     setAlertVisible(true);
   };
 
@@ -48,8 +55,8 @@ export default function EditProfile({ route, navigation }) {
   };
 
   const onSave = async () => {
-    if (!formData.name.trim()) {
-      showAlert("Error", "Name is required");
+    if (!formData.username.trim()) {
+      showAlert("Error", "Username is required");
       return;
     }
     if (!formData.email.trim()) {
@@ -58,9 +65,26 @@ export default function EditProfile({ route, navigation }) {
     }
 
     try {
-      await saveProfile({ ...formData });
-      showAlert("Success", "Profile updated successfully!");
+      const dataToSend = { ...formData };
+      if (!profileChanged && formData.profile?.startsWith('http')) {
+        delete dataToSend.profile;
+      }
+
+      await saveProfile(dataToSend);
+      
+      showAlert("Success", "Profile updated successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            setAlertVisible(false);
+            setTimeout(() => {
+              navigation.goBack();
+            }, 100);
+          },
+        },
+      ]);
     } catch (e) {
+      console.error("Save profile error:", e);
       showAlert(
         "Update Failed",
         e?.response?.data?.msg || e?.message || "Could not update profile"
@@ -101,7 +125,8 @@ export default function EditProfile({ route, navigation }) {
     }
 
     if (!result.canceled) {
-      updateField("avatar", result.assets[0].uri);
+      updateField("profile", result.assets[0].uri);
+      setProfileChanged(true);
       setShowImageModal(false);
     }
   };
@@ -161,10 +186,10 @@ export default function EditProfile({ route, navigation }) {
             style={styles.imageContainer}
             onPress={() => setShowImageModal(true)}
           >
-            {formData.avatar ? (
+            {formData.profile ? (
               <>
                 <Image
-                  source={{ uri: formData.avatar }}
+                  source={{ uri: formData.profile }}
                   style={styles.profileImage}
                 />
                 <View style={styles.imageOverlay}>
@@ -196,13 +221,13 @@ export default function EditProfile({ route, navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
 
-          {/* Name */}
+          {/* Username */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name *</Text>
+            <Text style={styles.label}>Username *</Text>
             <TextInput
-              value={formData.name}
-              onChangeText={(value) => updateField("name", value)}
-              placeholder="Enter your full name"
+              value={formData.username}
+              onChangeText={(value) => updateField("username", value)}
+              placeholder="Enter your username"
               placeholderTextColor="#999"
               style={styles.input}
             />
@@ -234,25 +259,7 @@ export default function EditProfile({ route, navigation }) {
               style={styles.input}
             />
           </View>
-
-          {/* Gender */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Gender</Text>
-            <TouchableOpacity
-              style={styles.genderInput}
-              onPress={() => setShowGenderModal(true)}
-            >
-              <Text
-                style={[
-                  styles.genderInputText,
-                  { color: formData.gender ? "#333" : "#999" },
-                ]}
-              >
-                {formData.gender || "Select your gender"}
-              </Text>
-              <Text style={styles.genderInputIcon}>▼</Text>
-            </TouchableOpacity>
-          </View>
+          
         </View>
       </ScrollView>
 
@@ -279,40 +286,6 @@ export default function EditProfile({ route, navigation }) {
                 label: "Prefer not to say",
               }}
             />
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Date Modal */}
-      <Modal
-        visible={showDateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDateModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDateModal(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Date of Birth</Text>
-            <Text style={styles.modalSubtitle}>
-              For now, you can manually enter your date of birth
-            </Text>
-            <TextInput
-              placeholder="DD/MM/YYYY"
-              placeholderTextColor="#999"
-              style={styles.dateTextInput}
-              value={formData.dob}
-              onChangeText={(value) => updateField("dob", value)}
-            />
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setShowDateModal(false)}
-            >
-              <Text style={styles.modalButtonText}>Done</Text>
-            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -358,7 +331,7 @@ export default function EditProfile({ route, navigation }) {
         visible={alertVisible}
         title={alertTitle}
         message={alertMessage}
-        buttons={[{ text: "OK", onPress: () => setAlertVisible(false) }]}
+        buttons={alertButtons}
         onClose={() => setAlertVisible(false)}
       />
     </View>
@@ -395,7 +368,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#E64A19", // Terracotta color
+    backgroundColor: "#E64A19",
   },
   saveButtonText: {
     fontSize: 16,
@@ -437,6 +410,7 @@ const styles = StyleSheet.create({
     right: 0,
     paddingVertical: 8,
     alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
   imageOverlayText: {
     fontSize: 14,
@@ -470,22 +444,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7FAFC",
     borderColor: "#E2E8F0",
   },
-  dateInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#F7FAFC",
-    borderColor: "#E2E8F0",
-  },
-  dateInputText: {
-    fontSize: 16,
-    color: "#333",
-  },
-  dateInputIcon: { fontSize: 20, color: "#E64A19" },
   genderInput: {
     borderWidth: 1,
     borderRadius: 12,
@@ -525,24 +483,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
     marginBottom: 16,
-    textAlign: "center",
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: "#999",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  dateTextInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 50,
-    fontSize: 16,
-    color: "#333",
-    backgroundColor: "#F7FAFC",
-    borderColor: "#E2E8F0",
-    marginBottom: 20,
     textAlign: "center",
   },
   modalButton: {

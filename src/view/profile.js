@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function Profile({ navigation }) {
   const { user, signOut } = useAuth();
@@ -17,11 +18,11 @@ export default function Profile({ navigation }) {
   // Safely map fields (AuthContext user has: id, username, email, phone)
   const ratingNum = Number(user?.rating ?? 0);
   const completionNum = Number(user?.completion ?? (user ? 60 : 30));
-  const avatarUri = user?.avatar || null;
+  const avatarUri = user?.profile || null;
 
 
   const safeUser = {
-    name: user?.name || user?.username || 'Guest',
+    name: user?.username || 'Guest',
     email: user?.email || 'guest@example.com',
     phone: user?.phone || '',
     avatar: avatarUri,
@@ -36,12 +37,17 @@ export default function Profile({ navigation }) {
     return '#F56565'; // error
   };
 
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Profile screen focused, current user:', user);
+    }, [user])
+  );
+
   const handleEdit = () => {
     navigation.navigate('EditProfile', { user: {
       name: safeUser.name,
       email: safeUser.email,
       phone: safeUser.phone,
-      dob: '',
       gender: '',
       avatar: safeUser.avatar,
     }});

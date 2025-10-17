@@ -18,10 +18,14 @@ export class Order {
     this.cancellationReason = orderData.cancellation_reason;
     this.createdAt = orderData.created_at || orderData.createdAt;
     this.updatedAt = orderData.updated_at || orderData.updatedAt;
+    this.restaurantName =
+      orderData.restaurantName ||
+      orderData.restaurant_name ||
+      (orderData.restaurant && orderData.restaurant.name);
 
-    this.restaurantName = orderData.restaurant.name;
     this.restaurant = orderData.restaurant;
     this.user_location = orderData.user_location;
+
     this.restaurantContact = orderData.restaurantContact;
     this.total = parseFloat(this.totalPrice) || 0;
     this.subtotal = parseFloat(orderData.subtotal) || 0;

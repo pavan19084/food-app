@@ -14,9 +14,31 @@ export const getUserById = async (id) => {
 
 // PATCH /update/:id         -> update one user (auth required)
 export const patchUser = async (id, payload) => {
-  const { data } = await client.patch(`/update/${id}`, payload);
-  return data; // expect { user } or user object
+  const isFormData = payload instanceof FormData;
+  const url = `auth/update/${id}`;
+
+  if (isFormData) {
+    for (let pair of payload.entries()) {
+      console.log(`   ${pair[0]} →`, pair[1]);
+    }
+  } else {
+    console.log("🔹 JSON Payload:", JSON.stringify(payload, null, 2));
+  }
+
+  const headers = isFormData
+    ? { "Content-Type": "multipart/form-data" }
+    : undefined;
+
+  try {
+    const response = await client.patch(url, payload, { headers });
+
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 };
+
+
 
 // DELETE /delete/:id        -> delete one user (auth required)
 export const deleteUser = async (id) => {

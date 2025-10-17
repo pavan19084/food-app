@@ -10,7 +10,7 @@ import {
   changePassword,
 } from '../api/auth';
 import { getUserById, patchUser } from '../api/user';
-import { mapUser } from '../models/user';
+import { mapUser ,updateUser } from '../models/user';
 import { setOnUnauthorized } from '../api/client';
 import { Alert } from 'react-native';
 
@@ -112,8 +112,48 @@ export const AuthProvider = ({ children, onLoggedOut }) => {
 
   const saveProfile = async (payload) => {
     if (!user?.id) throw new Error('Missing user id');
-    const res = await patchUser(user.id, payload);
-    const updated = mapUser(res?.user ?? res);
+    
+    // Check if there's a profile change
+    const hasProfileChange = payload.profile && !payload.profile.startsWith('http');
+    
+    let dataToSend;
+    
+    if (hasProfileChange) {
+      // Use FormData for file upload
+      dataToSend = new FormData();
+      
+      Object.keys(payload).forEach(key => {
+        const value = payload[key];
+        if (value === null || value === undefined || value === '') return;
+        if (user[key] === value && key !== 'profile') return;
+        
+        if (key === 'profile') {
+          const uri = value;
+          const filename = uri.split('/').pop();
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : 'image/jpeg';
+          
+          dataToSend.append('profile', { uri, name: filename, type });
+        } else {
+          dataToSend.append(key, String(value));
+        }
+      });
+    } else {
+      // Use JSON for text-only updates
+      dataToSend = {};
+      
+      Object.keys(payload).forEach(key => {
+        const value = payload[key];
+        // Skip profile if null or empty
+        if (key === 'profile' && (!value || value === '')) return;
+        if (value === null || value === undefined || value === '') return;
+        if (user[key] === value) return;
+        
+        dataToSend[key] = value;
+      });
+    }
+    const res = await patchUser(user.id, dataToSend);
+    const updated = updateUser(user, res);
     setUser(updated);
     await AsyncStorage.setItem('@auth_user', JSON.stringify(updated));
     return updated;
