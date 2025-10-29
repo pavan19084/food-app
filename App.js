@@ -1,7 +1,10 @@
 import "react-native-gesture-handler";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
+import { AppState } from "react-native";
+import * as Notifications from 'expo-notifications';
+import NotificationService from "./src/utils/notificationService";
 
 // AUTH SCREENS (now modals on top of the app)
 import Login from "./src/view/auth/login";
@@ -26,7 +29,8 @@ import OrderDetails from "./src/view/OrderDetails";
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { OrderProvider } from "./src/context/OrderContext";
-import { CartProvider } from "./src/context/CartContext"; // ADD THIS LINE
+import { CartProvider } from "./src/context/CartContext";
+import { TimerProvider } from "./src/context/TimerContext";
 
 const Stack = createStackNavigator();
 
@@ -85,6 +89,21 @@ function AppContent() {
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const { loading } = useAuth();
 
+  // Request notification permissions and setup background notifications
+  useEffect(() => {
+    const requestNotificationPermissions = async () => {
+      await NotificationService.requestPermissions();
+    };
+    
+    requestNotificationPermissions();
+
+
+    return () => {
+      notificationListener.remove();
+      foregroundListener.remove();
+    };
+  }, []);
+
   const handleSplashFinish = () => {
     setSplashAnimationComplete(true);
   };
@@ -116,11 +135,13 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider onLoggedOut={() => {}}>
-      <OrderProvider>
-        <CartProvider>
-          <AppContent />
-        </CartProvider>
-      </OrderProvider>
+      <TimerProvider>
+        <OrderProvider>
+          <CartProvider>
+            <AppContent />
+          </CartProvider>
+        </OrderProvider>
+      </TimerProvider>
     </AuthProvider>
   );
 }

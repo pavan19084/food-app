@@ -80,50 +80,6 @@ export default function Profile({ navigation }) {
               </TouchableOpacity>
             ) : null}
           </View>
-          
-          {/* Profile Completion */}
-          <View style={styles.completionSection}>
-            <View style={styles.completionHeader}>
-              <Text style={styles.completionTitle}>Profile Completion</Text>
-              <Text style={[styles.completionPercentage, { color: getCompletionColor(safeUser.completion) }]}>
-                {Number.isFinite(safeUser.completion) ? `${safeUser.completion}%` : '—'}
-              </Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    backgroundColor: getCompletionColor(safeUser.completion),
-                    width: `${Math.min(Math.max(safeUser.completion, 0), 100)}%`
-                  }
-                ]} 
-              />
-            </View>
-            <Text style={styles.completionSubtext}>
-              {safeUser.isLoggedIn
-                ? 'Complete your profile to unlock more features'
-                : 'Log in to personalize your experience'}
-            </Text>
-          </View>
-
-          {/* Stats */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {Number.isFinite(safeUser.rating) ? safeUser.rating.toFixed(1) : '—'}
-              </Text>
-              <Text style={styles.statLabel}>Rating</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{safeUser.isLoggedIn ? '12' : '0'}</Text>
-              <Text style={styles.statLabel}>Orders</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{safeUser.isLoggedIn ? '5' : '0'}</Text>
-              <Text style={styles.statLabel}>Favorites</Text>
-            </View>
-          </View>
         </View>
 
         {/* If guest: show quick actions */}

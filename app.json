@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "92 eats",
+    "name": "eats 92",
     "slug": "food-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,12 +20,27 @@
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": false,
-      "package": "com.pavan1984.foodapp"
+      "package": "com.pavan1984.foodapp",
+      "permissions": ["NOTIFICATIONS","LOCATION"]
     },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/playstore.png"
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#ffffff",
+          "defaultChannel": "default",
+          "sounds": [
+            "./assets/notification.wav"
+          ],
+          "enableBackgroundRemoteNotifications": true
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "3fe416bc-961c-4279-9b1d-5bada22e9d53"

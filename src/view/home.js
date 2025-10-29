@@ -18,20 +18,23 @@ import { useOrder } from '../context/OrderContext';
 import { useCart } from '../context/CartContext';
 import { LocationService } from '../utils/locationService';
 import { getAllRestaurants } from '../api/restaurant';
+import { getUserOrders } from '../api/order';
+import { getAllAddresses } from '../api/address';
 import { useAlert } from '../hooks/useAlert';
 import CustomAlert from '../components/CustomAlert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CartFooter from '../components/CartFooter';
-import { DistanceService } from '../utils/distanceService';
+import DeliveryTimer from '../components/DeliveryTimer';
+import NotificationService from '../utils/notificationService';
 
 const CATEGORY_ITEMS = [
+  { id: 'all', label: 'All', img: 'https://images.squarespace-cdn.com/content/v1/53b839afe4b07ea978436183/1daa9086-0f1d-4d65-86b5-4a15a36d08d4/traditional-food-around-the-world-Travlinmad.jpg' },
   { id: 'healthy', label: 'Healthy', img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900&h=500&fit=crop&auto=format' },
   { id: 'biryani', label: 'Biryani', img: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxkIYXyQ8YvdloqFq9iZAAcL95GwCk30Kj3g&s' },
   { id: 'pizza', label: 'Pizza', img: 'https://i0.wp.com/olivesandlamb.com/wp-content/uploads/2024/05/Chicken-Parmesan-Pizza-10-4x5-1.jpg?resize=819%2C1024&ssl=1' },
   { id: 'haleem', label: 'Haleem', img: 'https://www.licious.in/blog/wp-content/uploads/2022/04/Chicken-Haleem-Cooked-min-compressed-scaled.jpg' },
   { id: 'chicken', label: 'Chicken', img: 'https://www.shutterstock.com/image-photo/crispy-fried-chicken-on-plate-600nw-2184383193.jpg' },
   { id: 'burger', label: 'Burger', img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=120&h=120&fit=crop&auto=format' },
-  { id: 'cake', label: 'Cake', img: 'https://assets.winni.in/product/primary/2023/3/83223.jpeg?dpr=1&w=500' },
   { id: 'shawarma', label: 'Shawarma', img: 'https://www.munatycooking.com/wp-content/uploads/2023/12/chicken-shawarma-image-feature-2023.jpg' },
 ];
 
@@ -75,9 +78,9 @@ const HorizontalCategoryChip = ({ item, selected, onPress }) => (
 
 const getStatusLabels = (orderType) => {
   if (orderType === 'collection') {
-    return ['Pending', 'Confirmed', 'Prepared', 'Ready', 'Collected'];
+    return ['Pending', 'Confirmed', 'Prepared', 'Collected'];
   }
-  return ['Pending', 'Confirmed', 'Prepared', 'Delivery', 'Delivered'];
+  return ['Pending', 'Confirmed', 'Prepared', 'Delivered'];
 };
 
 const OrderRectangle = ({ order, onPress }) => {
@@ -86,8 +89,15 @@ const OrderRectangle = ({ order, onPress }) => {
 
   useEffect(() => {
     if (!order) return;
+    
+    // Treat "out_for_delivery" as "prepared"
+    let displayStatus = order.status;
+    if (order.status === 'out_for_delivery') {
+      displayStatus = 'prepared';
+    }
+    
     const statusIndex = statusLabels.findIndex(
-      (s) => s.toLowerCase().includes(order.status.toLowerCase())
+      (s) => s.toLowerCase().includes(displayStatus.toLowerCase())
     );
     setCurrentIndex(statusIndex >= 0 ? statusIndex : 0);
   }, [order.status, order.orderType]);
@@ -150,6 +160,12 @@ const OrderRectangle = ({ order, onPress }) => {
           );
         })}
       </View>
+      <DeliveryTimer
+        orderStatus={order.status}
+        orderType={order.orderType}
+        variant="compact"
+        style={styles.timerContainer}
+      />
     </TouchableOpacity>
   );
 };
@@ -157,13 +173,32 @@ const OrderRectangle = ({ order, onPress }) => {
 const RestaurantCard = ({ item, currentLocation }) => {
   const navigation = useNavigation();
 
+  // Ensure item exists and has required properties
+  if (!item) {
+    return null;
+  }
+
+  // Build meta icons array with proper validation
   const metaIcons = [];
-  if (item.deliveryAvailable) metaIcons.push({ name: 'bicycle', label: 'Delivery' });
-  if (item.collectionAvailable) metaIcons.push({ name: 'storefront', label: 'Collection' });
-  if (item.cardPaymentAvailable) metaIcons.push({ name: 'card', label: 'Card' });
-  if (item.cashOnDeliveryAvailable) metaIcons.push({ name: 'cash', label: 'Cash' });
+  if (item.deliveryAvailable === true) {
+    metaIcons.push({ name: 'bicycle', label: 'Delivery' });
+  }
+  if (item.collectionAvailable === true) {
+    metaIcons.push({ name: 'storefront', label: 'Collection' });
+  }
+  if (item.cardPaymentAvailable === true) {
+    metaIcons.push({ name: 'card', label: 'Card' });
+  }
+  if (item.cashOnDeliveryAvailable === true) {
+    metaIcons.push({ name: 'cash', label: 'Cash' });
+  }
 
   const handlePress = () => {
+    // Don't navigate if restaurant is offline
+    if (item.isOnline !== true) {
+      return;
+    }
+    
     if (item.onTap) {
       navigation.navigate(item.onTap, {
         title: item.title,
@@ -173,52 +208,80 @@ const RestaurantCard = ({ item, currentLocation }) => {
         envNote: item.envNote,
         restaurantId: item.restaurantData?.restaurantId,
         restaurantData: item.restaurantData,
+        currentLocation: currentLocation, 
+        fromHome: true,
       });
     }
   };
 
+  // No distance calculation on home page
+
+  // Get safe title and subtitle
+  const title = item.title ? String(item.title) : 'Restaurant';
+  const subtitle = item.subtitle ? String(item.subtitle) : '';
+
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.95}>
+    <TouchableOpacity 
+      style={[
+        styles.card, 
+        item.isOnline === false && styles.offlineCard
+      ]} 
+      onPress={handlePress} 
+      activeOpacity={item.isOnline === true ? 0.95 : 1}
+      disabled={item.isOnline !== true}
+    >
       <View style={styles.cardImageContainer}>
-        <Image source={{ uri: item.cover }} style={styles.cardImage} />
+        <Image 
+          source={{ uri: item.cover || 'https://via.placeholder.com/300x180' }} 
+          style={[
+            styles.cardImage,
+            item.isOnline === false && styles.offlineImage
+          ]} 
+        />
         
         {/* Offline Badge */}
-        {!item.isOnline && (
+        {item.isOnline === false && (
           <View style={styles.offlineBadge}>
             <Ionicons name="cloud-offline" size={14} color="#FFFFFF" />
             <Text style={styles.offlineBadgeText}>Offline</Text>
           </View>
         )}
+        
+        {/* Offline Overlay */}
+        {item.isOnline === false && (
+          <View style={styles.offlineOverlay}>
+            <Ionicons name="lock-closed" size={24} color="#FFFFFF" />
+            <Text style={styles.offlineOverlayText}>Restaurant is offline</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+        <Text style={styles.cardTitle}>{title}</Text>
+        <Text style={styles.cardSubtitle}>{subtitle}</Text>
         
-        {/* Show distance info if available */}
-        {item.distance && item.duration && (
-          <View style={styles.distanceInfoRow}>
-            <Ionicons name="information-circle-outline" size={16} color="#02A357" />
-            <Text style={styles.distanceInfoText}>
-              {item.distance} km • {item.duration} mins
-            </Text>
-            {item.deliveryCharge && (
-              <Text style={styles.distanceInfoText}>
-                {' '}• ₹{item.deliveryCharge}
-              </Text>
-            )}
-          </View>
-        )}
+        {/* No distance info on home page for better UX */}
 
         {/* Meta Icons Row */}
-        <View style={styles.metaRow}>
-          {metaIcons.map((icon, idx) => (
-            <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
-              <Ionicons name={icon.name + '-outline'} size={18} color="#666" />
-              <Text style={{ fontSize: 12, color: '#666', marginLeft: 4 }}>{icon.label}</Text>
-            </View>
-          ))}
-        </View>
+        {metaIcons.length > 0 && (
+          <View style={styles.metaRow}>
+            {metaIcons.map((icon, idx) => (
+              <View 
+                key={`${icon.name}-${idx}`} 
+                style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
+              >
+                <Ionicons 
+                  name={`${icon.name}-outline`} 
+                  size={18} 
+                  color="#666" 
+                />
+                <Text style={{ fontSize: 12, color: '#666', marginLeft: 4 }}>
+                  {icon.label || ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -227,7 +290,7 @@ const RestaurantCard = ({ item, currentLocation }) => {
 export default function Home() {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { activeOrder, showOrderNotification } = useOrder();
+  const { activeOrder, showOrderNotification, setActiveOrder, setOrderPlaced } = useOrder();
   const { getTotalItems } = useCart();
   const alert = useAlert();
 
@@ -235,8 +298,9 @@ export default function Home() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [restaurants, setRestaurants] = useState([]);
   const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [previousActiveOrderStatus, setPreviousActiveOrderStatus] = useState(null);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const [showHorizontalCategories, setShowHorizontalCategories] = useState(false);
@@ -245,9 +309,19 @@ export default function Home() {
   const hasCartItems = getTotalItems() > 0;
 
   useEffect(() => {
-    loadLocation();
+    loadUserAddresses();
     loadRestaurants();
-  }, []);
+    if (user) {
+      checkForExistingOrders();
+    }
+  }, [user]);
+
+  // Monitor active order status changes (notifications handled by OrderContext)
+  useEffect(() => {
+    setPreviousActiveOrderStatus(activeOrder?.status);
+  }, [activeOrder?.status]);
+
+  // No distance calculation on home page for better UX
 
   useEffect(() => {
     const listenerId = scrollY.addListener(({ value }) => {
@@ -261,18 +335,63 @@ export default function Home() {
     return () => scrollY.removeListener(listenerId);
   }, [showHorizontalCategories]);
 
-  const loadLocation = async () => {
+  const checkForExistingOrders = async () => {
+    if (!user) return;
+    
+    try {
+      const result = await getUserOrders(user.id);
+      
+      if (result.success && result.data && result.data.length > 0) {
+        // Find the most recent non-delivered order
+        const activeOrders = result.data.filter(order => 
+          order.status !== 'delivered' && 
+          order.status !== 'cancelled' && 
+          order.status !== 'collected'
+        );
+        
+        if (activeOrders.length > 0) {
+          // Get the most recent active order
+          const latestOrder = activeOrders.sort((a, b) => 
+            new Date(b.createdAt || b.orderDate) - new Date(a.createdAt || a.orderDate)
+          )[0];
+          
+          // Set as active order using setOrderPlaced to handle notification and polling
+          setOrderPlaced(latestOrder);
+        } 
+      }
+    } catch (error) {
+      console.error('Home - Error checking existing orders:', error);
+    }
+  };
+
+  const loadUserAddresses = async () => {
     try {
       setIsLoadingLocation(true);
-      const location = await LocationService.getLocationWithFallback();
-      setCurrentLocation(location);
+      const result = await getAllAddresses();
+      
+      if (result.success && result.data.length > 0) {
+        // Use the first saved address as default location
+        const firstAddress = result.data[0];
+        setCurrentLocation(firstAddress);
+      } else {
+        // Fallback to current location if no saved addresses
+        const location = await LocationService.getLocationWithFallback();
+        setCurrentLocation(location);
+      }
     } catch (error) {
-      console.error('Error loading location:', error);
-      alert.show({
-        title: 'Location Error',
-        message: 'Unable to load location. Please check your location permissions.',
-        buttons: [{ text: 'OK', onPress: () => { } }]
-      });
+      console.error('Error loading addresses:', error);
+      // Fallback to current location
+      try {
+        const location = await LocationService.getLocationWithFallback();
+        setCurrentLocation(location);
+      } catch (fallbackError) {
+        console.error('Error loading fallback location:', fallbackError);
+        alert.show({
+          title: 'Location Error',
+          message: 'Unable to load location. Please add a saved address or check your location permissions.',
+          buttons: [{ text: 'OK', onPress: () => { } }]
+        });
+      }
     } finally {
       setIsLoadingLocation(false);
     }
@@ -286,29 +405,7 @@ const loadRestaurants = async () => {
     if (result.success) {
       const restaurantInstances = result.data;
       
-      // Calculate distance if location available
-      if (currentLocation) {
-        for (const restaurant of restaurantInstances) {
-          try {
-            const distanceResult = await DistanceService.getRoadDistance(
-              parseFloat(currentLocation.longitude),
-              parseFloat(currentLocation.latitude),
-              parseFloat(restaurant.longitude),
-              parseFloat(restaurant.latitude)
-            );
-            
-            if (distanceResult.success) {
-              restaurant.setDistance(
-                distanceResult.distance,
-                distanceResult.duration
-              );
-            }
-          } catch (error) {
-            console.error(`Distance error for ${restaurant.name}:`, error);
-          }
-        }
-      }
-      
+      // Convert to card data without distance calculation
       const restaurantCards = restaurantInstances.map(r => r.toCardData());
       setRestaurants(restaurantCards);
     } else {
@@ -332,13 +429,14 @@ const loadRestaurants = async () => {
   }
 };
 
+
   const handleLocationSelect = (location) => {
     setCurrentLocation(location);
     LocationService.saveLocation(location);
   };
 
   const handleCategoryPress = (categoryId) => {
-    setSelectedCategory(selectedCategory === categoryId ? null : categoryId);
+    setSelectedCategory(selectedCategory === categoryId ? 'all' : categoryId);
   };
 
   const handleOrderPress = () => {
@@ -347,19 +445,76 @@ const loadRestaurants = async () => {
 
   const getFilteredRestaurants = () => {
     let filtered = restaurants;
-
-    if (selectedCategory) {
+  
+    if (selectedCategory && selectedCategory !== 'all') {
       filtered = filtered.filter(restaurant => restaurant.category === selectedCategory);
     }
+      if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase().trim();
+      
+      filtered = filtered.filter(restaurant => {
 
-    if (searchQuery.trim() !== '') {
-      filtered = filtered.filter(restaurant =>
-        restaurant.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (restaurant.subtitle && restaurant.subtitle.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+        const nameMatch = restaurant.title?.toLowerCase().includes(query);
+
+        const subtitleMatch = restaurant.subtitle?.toLowerCase().includes(query);
+        const cuisineMatch = restaurant.restaurantData?.cuisine?.some(
+          cuisine => cuisine?.toLowerCase().includes(query)
+        );
+        const categoryMatch = restaurant.restaurantData?.categories?.some(
+          category => category.name?.toLowerCase().includes(query)
+        );
+        const itemMatch = restaurant.restaurantData?.categories?.some(
+          category => category.items?.some(
+            item => {
+              const itemNameMatch = item.name?.toLowerCase().includes(query);
+              const itemDescMatch = item.description?.toLowerCase().includes(query);
+              return itemNameMatch || itemDescMatch;
+            }
+          )
+        );
+        
+        // Return true if any match is found
+        return nameMatch || subtitleMatch || cuisineMatch || categoryMatch || itemMatch;
+      });
     }
-
+  
     return filtered;
+  };
+  
+  // Optional: Helper function to get search match details for display
+  const getSearchMatchInfo = (restaurant, query) => {
+    if (!query || !restaurant) return null;
+    
+    const lowerQuery = query.toLowerCase();
+    
+    if (restaurant.title?.toLowerCase().includes(lowerQuery)) {
+      return { type: 'Restaurant', value: restaurant.title };
+    }
+    const matchedCuisine = restaurant.restaurantData?.cuisine?.find(
+      c => c?.toLowerCase().includes(lowerQuery)
+    );
+    if (matchedCuisine) {
+      return { type: 'Cuisine', value: matchedCuisine };
+    }
+    
+    const matchedCategory = restaurant.restaurantData?.categories?.find(
+      cat => cat.name?.toLowerCase().includes(lowerQuery)
+    );
+    if (matchedCategory) {
+      return { type: 'Category', value: matchedCategory.name };
+    }
+    
+    for (const category of restaurant.restaurantData?.categories || []) {
+      const matchedItem = category.items?.find(
+        item => item.name?.toLowerCase().includes(lowerQuery) ||
+                item.description?.toLowerCase().includes(lowerQuery)
+      );
+      if (matchedItem) {
+        return { type: 'Item', value: matchedItem.name };
+      }
+    }
+    
+    return null;
   };
 
   const filteredRestaurants = getFilteredRestaurants();
@@ -486,8 +641,9 @@ const loadRestaurants = async () => {
         </View>
 
         <Text style={styles.h2}>
-          {isLoadingRestaurants ? 'Loading restaurants...' : `${filteredRestaurants.length} restaurants around you`}
-          {selectedCategory && ` - ${CATEGORY_ITEMS.find(c => c.id === selectedCategory)?.label}`}
+          {isLoadingRestaurants ? 'Loading restaurants...' : 
+           `${filteredRestaurants.length} restaurants around you`}
+          {selectedCategory && selectedCategory !== 'all' && ` - ${CATEGORY_ITEMS.find(c => c.id === selectedCategory)?.label}`}
         </Text>
 
         {isLoadingRestaurants ? (
@@ -781,6 +937,30 @@ offlineBadgeText: {
   fontSize: 12,
   fontWeight: '600',
 },
+offlineCard: {
+  opacity: 0.6,
+},
+offlineImage: {
+  opacity: 0.5,
+},
+offlineOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderRadius: 16,
+},
+offlineOverlayText: {
+  color: '#FFFFFF',
+  fontSize: 14,
+  fontWeight: '600',
+  marginTop: 8,
+  textAlign: 'center',
+},
 cardBody: {
   padding: 14,
 },
@@ -814,5 +994,9 @@ distanceInfoDot: {
 metaRow: {
   flexDirection: 'row',
   flexWrap: 'wrap',
+},
+timerContainer: {
+  marginTop: 8,
+  alignSelf: 'flex-start',
 },
 });

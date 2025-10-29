@@ -9,17 +9,21 @@ import { useAuth } from "../../context/AuthContext";
 import { useOrder } from "../../context/OrderContext";
 import { useCart } from "../../context/CartContext";
 import { Order } from "../../models/order";
+import { Restaurant } from "../../models/restaurant";
 import { addOrder } from "../../api/order";
 import { getAllAddresses } from "../../api/address";
 import { useAlert } from "../../hooks/useAlert";
 import CustomAlert from "../../components/CustomAlert";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { getFullImageUrl } from "../../utils/imageUrl";
+import { DistanceService } from "../../utils/distanceService";
 
 export default function CartScreen({ navigation, route }) {
   const { user } = useAuth();
   const { setOrderPlaced, activeOrder } = useOrder();
   const { cart, removeFromCart, addToCart, clearCart, getTotalItems, getTotalPrice } = useCart();
   const alert = useAlert();
+  const { currentLocation: passedLocation } = route?.params || {};
 
   const [selectedPayment, setSelectedPayment] = useState("card");
   const [selectedDeliveryType, setSelectedDeliveryType] = useState("delivery");
@@ -28,42 +32,161 @@ export default function CartScreen({ navigation, route }) {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [deliveryCharge, setDeliveryCharge] = useState(0);
+  const [deliveryAvailable, setDeliveryAvailable] = useState(true);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [userHasSelectedAddress, setUserHasSelectedAddress] = useState(false);
+  const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
+  const [calculatedDeliveryTime, setCalculatedDeliveryTime] = useState(null);
+  const [calculatedDistance, setCalculatedDistance] = useState(null);
 
   const restaurantName = cart.restaurantName;
   const restaurantData = cart.restaurantData;
   const restaurantId = cart.restaurantId;
   const items = cart.items;
 
+  const deliveryCheckInProgress = useRef(false);
+  const lastCheckedLocationId = useRef(null);
+  const isInitialLoad = useRef(true);
+
   const capabilities = restaurantData;
+  useEffect(() => {
+    if (passedLocation) {
+      setSelectedLocation(passedLocation);
+      checkDeliveryAvailability(passedLocation);
+    }
+  }, [passedLocation]);
+
+  // Additional effect to ensure passed location takes priority over saved addresses
+  useEffect(() => {
+    if (passedLocation && selectedLocation && selectedLocation.id !== passedLocation.id) {
+      setSelectedLocation(passedLocation);
+      checkDeliveryAvailability(passedLocation);
+    }
+  }, [passedLocation, selectedLocation]);
 
   // Load user addresses on mount
   useEffect(() => {
     if (user?.id) {
-      loadUserAddresses();
+      loadUserAddresses(false); // Allow default selection only on initial load
     }
   }, [user?.id]);
 
-  const loadUserAddresses = async () => {
+  const loadUserAddresses = async (skipDefaultSelection = false) => {
     try {
-      setIsLoadingLocation(true);
       const result = await getAllAddresses();
-      if (result.success && result.data.length > 0) {
+      
+      if (result.success && result.data && result.data.length > 0) {
         setAddresses(result.data);
-        if (!selectedLocation) setSelectedLocation(result.data[0]);
+      } else {
+        setAddresses([]);
+      }
+      
+      // Only set default location if no location is selected, we're not skipping default selection, and user hasn't manually selected an address
+      if (!selectedLocation && !skipDefaultSelection && !userHasSelectedAddress) {
+        const defaultLocation = passedLocation || (result.data && result.data[0]);
+        if (defaultLocation) {
+          setSelectedLocation(defaultLocation);
+          checkDeliveryAvailability(defaultLocation);
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error('📍 Error loading addresses:', err);
+      setAddresses([]);
+      if (passedLocation && !selectedLocation && !skipDefaultSelection) {
+        setSelectedLocation(passedLocation);
+        checkDeliveryAvailability(passedLocation);
+      }
+    }
+  };
+
+  const checkDeliveryAvailability = async (location) => {
+    setIsCheckingAvailability(true);
+    setIsCalculatingDelivery(true);
+    
+    try {
+      const distanceResult = await DistanceService.getRoadDistance(
+        parseFloat(location.longitude),
+        parseFloat(location.latitude),
+        parseFloat(restaurantData.longitude || 0),
+        parseFloat(restaurantData.latitude || 0)
+      );
+
+      if (distanceResult.success) {
+
+        if (restaurantData.setDistance) {
+          restaurantData.setDistance(distanceResult.distance, distanceResult.duration);
+        }
+        
+        const distanceNum = parseFloat(distanceResult.distance);
+        
+        // Check if distance is within delivery ranges
+        const deliveryAvailable = restaurantData.deliveryRanges?.length > 0 && 
+          restaurantData.deliveryRanges.some(range => 
+            distanceNum >= range.minKm && distanceNum <= range.maxKm
+          );
+      
+        // Calculate delivery charge based on distance
+        let deliveryCharge = 0;
+        if (deliveryAvailable && restaurantData.deliveryRanges?.length > 0) {
+          const matchingRange = restaurantData.deliveryRanges.find(range => 
+            distanceNum >= range.minKm && distanceNum <= range.maxKm
+          );
+          deliveryCharge = matchingRange ? matchingRange.charge : 0;
+        }
+        
+        setDeliveryAvailable(deliveryAvailable);
+        setDeliveryCharge(deliveryCharge);
+        setCalculatedDistance(distanceResult.distance);
+        
+        // Calculate delivery time based on distance and restaurant preparation time
+        const basePreparationTime = capabilities?.deliveryTime ? 
+          parseInt(capabilities.deliveryTime.split('-')[0]) : 30; // Get minimum prep time
+        const travelTime = Math.ceil(distanceResult.duration / 60); // Convert seconds to minutes
+        const totalDeliveryTime = basePreparationTime + travelTime;
+        
+        setCalculatedDeliveryTime(totalDeliveryTime);
+
+        // Show appropriate messages based on delivery availability
+        if (!deliveryAvailable && selectedDeliveryType === "delivery") {
+          setSelectedDeliveryType("collection");
+          alert.show({
+            title: 'Delivery Not Available',
+            message: `Delivery is not available to this location (${distanceResult.distance}km away). Distance exceeds delivery range. Switched to collection.`,
+            buttons: [{ text: 'OK', onPress: () => {} }]
+          });
+        } else if (deliveryAvailable && selectedDeliveryType === "collection") {
+          alert.show({
+            title: 'Delivery Available',
+            message: `Delivery is now available to this location (${distanceResult.distance}km away). Delivery charge: £${deliveryCharge.toFixed(2)}.`,
+            buttons: [{ text: 'OK', onPress: () => {} }]
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error checking delivery availability:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        location: location?.addressline1,
+        restaurant: restaurantData?.name
+      });
+      setDeliveryAvailable(false);
+      setDeliveryCharge(0);
+      setCalculatedDeliveryTime(null);
+      setCalculatedDistance(null);
     } finally {
-      setIsLoadingLocation(false);
+      setIsCheckingAvailability(false);
+      setIsCalculatingDelivery(false);
     }
   };
 
   // Set default delivery type based on what's available
   React.useEffect(() => {
     if (capabilities) {
-      if (!capabilities.deliveryAvailable && capabilities.collectionAvailable) {
+      if (!capabilities.deliveryEnabled && capabilities.takeawayEnabled) {
         setSelectedDeliveryType("collection");
-      } else if (capabilities.deliveryAvailable && !capabilities.collectionAvailable) {
+      } else if (capabilities.deliveryEnabled && !capabilities.takeawayEnabled) {
         setSelectedDeliveryType("delivery");
       }
     }
@@ -72,9 +195,9 @@ export default function CartScreen({ navigation, route }) {
   // Set default payment method based on what's available
   React.useEffect(() => {
     if (capabilities) {
-      if (!capabilities.cardPaymentAvailable && capabilities.cashOnDeliveryAvailable) {
+      if (!capabilities.cardPaymentEnabled && capabilities.cashPaymentEnabled) {
         setSelectedPayment("cash");
-      } else if (capabilities.cardPaymentAvailable && !capabilities.cashOnDeliveryAvailable) {
+      } else if (capabilities.cardPaymentEnabled && !capabilities.cashPaymentEnabled) {
         setSelectedPayment("card");
       }
     }
@@ -124,8 +247,13 @@ export default function CartScreen({ navigation, route }) {
   };
 
   const openAddressModal = async () => {
-    await loadUserAddresses();
-    setAddressModalVisible(true);
+    try {
+      await loadUserAddresses(true);
+      setAddressModalVisible(true);
+    } catch (error) {
+      console.error('Error opening address modal:', error);
+      setAddressModalVisible(true);
+    }
   };
 
   const updateQuantity = (id, change) => {
@@ -145,8 +273,9 @@ export default function CartScreen({ navigation, route }) {
   };
 
   const subtotal = getTotalPrice();
-  const deliveryFee = selectedDeliveryType === "delivery" ? 1.5 : 0;
-  const total = subtotal;
+  
+  const deliveryFee = selectedDeliveryType === "delivery" ? deliveryCharge : 0;
+  const total = subtotal + deliveryFee;
 
   const totalItems = getTotalItems();
 
@@ -244,6 +373,24 @@ export default function CartScreen({ navigation, route }) {
       return;
     }
 
+    if (!restaurantData || !restaurantData.isOnline) {
+      alert.show({
+        title: 'Restaurant Unavailable',
+        message: 'This restaurant is currently offline. Please try again later.',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
+      return;
+    }
+
+    if (selectedDeliveryType === "delivery" && !deliveryAvailable) {
+      alert.show({
+        title: 'Delivery Not Available',
+        message: 'Delivery is not available to your selected location. Distance exceeds restaurant delivery range. Please choose collection or select a different address.',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
+      return;
+    }
+
     setIsPlacingOrder(true);
 
     try {
@@ -262,21 +409,26 @@ export default function CartScreen({ navigation, route }) {
           })();
 
       const apiOrderType = selectedDeliveryType === "collection" ? "takeaway" : selectedDeliveryType;
+      
       // Prepare order data for API
       const orderData = {
-        user_id: user.id.toString(),
-        restaurant_id: restaurantId,
-        location_id: selectedLocation.id.toString(),
+        user_id: user?.id?.toString() || '',
+        restaurant_id: restaurantId || '',
+        location_id: selectedLocation?.id?.toString() || '',
         items: Order.formatCartItemsForApi(items),
         total_price: total,
         payment_type: selectedPayment,
         order_type: apiOrderType,
         special_instructions: specialInstructions,
-        restaurant_name: restaurantName
+        restaurant_name: restaurantName || ''
       };
       const result = await addOrder(orderData);
 
       if (result.success) {
+        // Calculate delivery time for timer
+        const calculatedDeliveryTime = selectedDeliveryType === "delivery" ? 
+          (restaurantData?.duration || 30) : 0;
+        
         // Create order details for the confirmation screen
         const orderDetails = {
           orderId: result.data.order_id,
@@ -301,14 +453,21 @@ export default function CartScreen({ navigation, route }) {
           status: result.data.status,
           id: result.data.id,
           order_id: result.data.order_id,
-          user_id: user.id,
-          restaurant_id: orderData.restaurant_id,
-          location_id: orderData.location_id,
-          total_price: total.toString(),
+          user_id: user?.id || '',
+          restaurant_id: orderData.restaurant_id || '',
+          location_id: orderData.location_id || '',
+          total_price: total?.toString() || '0',
           payment_type: selectedPayment,
           order_type: selectedDeliveryType,
-          special_instructions: specialInstructions
+          special_instructions: specialInstructions,
+          // Add delivery time for timer calculation
+          deliveryTime: calculatedDeliveryTime,
+          // Add timer data for storage
+          deliveryTimeMinutes: calculatedDeliveryTime,
+          preparationTime: null, // Will be set when order is confirmed
+          totalTimeMinutes: calculatedDeliveryTime // Will be updated when preparation time is known
         };
+        
 
         // Clear cart after successful order
         clearCart();
@@ -371,14 +530,42 @@ export default function CartScreen({ navigation, route }) {
                 <Ionicons name="location" size={18} color={colors.primary} />
               </View>
               <View style={styles.addressBarText}>
-                <Text style={styles.addressBarLabel}>Deliver to</Text>
+                <Text style={styles.addressBarLabel}>
+                  Deliver to {passedLocation && selectedLocation === passedLocation ? '' : ''}
+                </Text>
                 <Text style={styles.addressBarAddress} numberOfLines={1}>
                   {selectedLocation.addressline1}, {selectedLocation.area}
                 </Text>
+                {calculatedDistance && (
+                  <Text style={styles.addressBarDistance}>
+                    📍 {calculatedDistance} km from restaurant
+                  </Text>
+                )}
               </View>
             </View>
             <Ionicons name="chevron-down" size={20} color={colors.textLight} />
           </TouchableOpacity>
+        )}
+
+        {/* Delivery Not Available Warning */}
+        {selectedLocation && selectedDeliveryType === "delivery" && !deliveryAvailable && (
+          <View style={styles.deliveryWarningBar}>
+            <View style={styles.warningLeft}>
+              <Ionicons name="warning" size={18} color="#FF6B35" />
+              <View style={styles.warningText}>
+                <Text style={styles.warningTitle}>Delivery not available</Text>
+                <Text style={styles.warningSubtitle}>
+                  This location is {calculatedDistance ? `${calculatedDistance} km` : ''} away and outside our delivery range
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity 
+              style={styles.changeLocationBtn}
+              onPress={openAddressModal}
+            >
+              <Text style={styles.changeLocationText}>Change Location</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -387,7 +574,7 @@ export default function CartScreen({ navigation, route }) {
           {items.map((item) => (
             <View key={item.id} style={styles.cartItem}>
               {renderVegIcon(item.isVeg)}
-              <Image source={{ uri: item.image }} style={{ width: 56, height: 56, borderRadius: 6, marginRight: 10 }} />
+              <Image source={{ uri: getFullImageUrl(item.image) }} style={{ width: 56, height: 56, borderRadius: 6, marginRight: 10 }} />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
               </View>
@@ -452,39 +639,59 @@ export default function CartScreen({ navigation, route }) {
         </View>
 
         {/* Delivery/Collection Selection */}
-        {capabilities && (capabilities.deliveryAvailable || capabilities.collectionAvailable) && (
+        {capabilities && (capabilities.deliveryEnabled || capabilities.takeawayEnabled) && (
           <View style={styles.section}>
             <View style={styles.paymentHeader}>
               <Ionicons name="car-outline" size={20} color={colors.text} />
               <Text style={styles.paymentHeaderText}>Delivery or Collection</Text>
             </View>
 
-            {capabilities && capabilities.deliveryAvailable && (
+            {capabilities && capabilities.deliveryEnabled && (
               <TouchableOpacity
                 style={[
                   styles.paymentOption,
                   selectedDeliveryType === "delivery" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+                  !deliveryAvailable && { opacity: 0.5 }
                 ]}
-                onPress={() => setSelectedDeliveryType("delivery")}
+                onPress={() => {
+                  if (deliveryAvailable) {
+                    setSelectedDeliveryType("delivery");
+                  } else {
+                    openAddressModal();
+                  }
+                }}
               >
-                <View style={styles.paymentLeft}>
-                  <Ionicons
-                    name="car-outline"
-                    size={20}
-                    color={selectedDeliveryType === "delivery" ? colors.primary : colors.textLight}
-                  />
-                  <View style={styles.deliveryOptionText}>
-                    <Text style={styles.paymentTitle}>Delivery</Text>
-                    <Text style={styles.deliverySubtitle}>{capabilities.deliveryTime} • £1.50 delivery fee</Text>
-                  </View>
-                </View>
+<View style={styles.paymentLeft}>
+  {isCalculatingDelivery ? (
+    <View style={{ width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
+      <LoadingSpinner size="small" color={colors.primary} style={{ transform: [{ scale: 0.5 }] }} />
+    </View>
+  ) : (
+    <Ionicons
+      name="car-outline"
+      size={20}
+      color={selectedDeliveryType === "delivery" ? colors.primary : colors.textLight}
+    />
+  )}
+  <View style={styles.deliveryOptionText}>
+    <Text style={styles.paymentTitle}>Delivery</Text>
+    <Text style={styles.deliverySubtitle}>
+      {!deliveryAvailable 
+        ? 'Delivery not available to this location • Tap to change address' 
+        : isCalculatingDelivery 
+          ? 'Calculating delivery time...' 
+          : `${calculatedDeliveryTime ? `${calculatedDeliveryTime} mins` : (capabilities.deliveryTime || '30-40 mins')} • ${deliveryCharge > 0 ? `£${deliveryCharge.toFixed(2)} delivery fee` : 'Free delivery'}`
+      }
+    </Text>
+  </View>
+</View>
                 <View style={[styles.radioButton, selectedDeliveryType === "delivery" && { borderColor: colors.primary }]}>
                   {selectedDeliveryType === "delivery" && <View style={styles.radioButtonSelected} />}
                 </View>
               </TouchableOpacity>
             )}
 
-            {capabilities && capabilities.collectionAvailable && (
+            {capabilities && capabilities.takeawayEnabled && (
               <TouchableOpacity
                 style={[
                   styles.paymentOption,
@@ -500,7 +707,7 @@ export default function CartScreen({ navigation, route }) {
                   />
                   <View style={styles.deliveryOptionText}>
                     <Text style={styles.paymentTitle}>Collection</Text>
-                    <Text style={styles.deliverySubtitle}>{capabilities.collectionTime} • No delivery fee</Text>
+                    <Text style={styles.deliverySubtitle}>{capabilities.collectionTime || '15-20 mins'} • No delivery fee</Text>
                   </View>
                 </View>
                 <View style={[styles.radioButton, selectedDeliveryType === "collection" && { borderColor: colors.primary }]}>
@@ -518,53 +725,51 @@ export default function CartScreen({ navigation, route }) {
             <Text style={styles.paymentHeaderText}>Payment Method</Text>
           </View>
 
-          {capabilities && capabilities.cardPaymentAvailable && (
-            <TouchableOpacity
-              style={[
-                styles.paymentOption,
-                selectedPayment === "card" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
-              ]}
-              onPress={() => setSelectedPayment("card")}
-            >
-              <View style={styles.paymentLeft}>
-                <Ionicons
-                  name="card-outline"
-                  size={20}
-                  color={selectedPayment === "card" ? colors.primary : colors.textLight}
-                />
-                <Text style={styles.paymentTitle}>Card Payment</Text>
-              </View>
-              <View style={[styles.radioButton, selectedPayment === "card" && { borderColor: colors.primary }]}>
-                {selectedPayment === "card" && <View style={styles.radioButtonSelected} />}
-              </View>
-            </TouchableOpacity>
-          )}
+          {/* Always show Card Payment option */}
+          <TouchableOpacity
+            style={[
+              styles.paymentOption,
+              selectedPayment === "card" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+            ]}
+            onPress={() => setSelectedPayment("card")}
+          >
+            <View style={styles.paymentLeft}>
+              <Ionicons
+                name="card-outline"
+                size={20}
+                color={selectedPayment === "card" ? colors.primary : colors.textLight}
+              />
+              <Text style={styles.paymentTitle}>Card Payment</Text>
+            </View>
+            <View style={[styles.radioButton, selectedPayment === "card" && { borderColor: colors.primary }]}>
+              {selectedPayment === "card" && <View style={styles.radioButtonSelected} />}
+            </View>
+          </TouchableOpacity>
 
-          {capabilities && capabilities.cashOnDeliveryAvailable && (
-            <TouchableOpacity
-              style={[
-                styles.paymentOption,
-                selectedPayment === "cash" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
-              ]}
-              onPress={() => setSelectedPayment("cash")}
-            >
-              <View style={styles.paymentLeft}>
-                <Ionicons
-                  name="cash-outline"
-                  size={20}
-                  color={selectedPayment === "cash" ? colors.primary : colors.textLight}
-                />
-                <Text style={styles.paymentTitle}>
-                  {selectedDeliveryType === "collection"
-                    ? "Cash on Collection"
-                    : "Cash on Delivery"}
-                </Text>
-              </View>
-              <View style={[styles.radioButton, selectedPayment === "cash" && { borderColor: colors.primary }]}>
-                {selectedPayment === "cash" && <View style={styles.radioButtonSelected} />}
-              </View>
-            </TouchableOpacity>
-          )}
+          {/* Always show Cash Payment option */}
+          <TouchableOpacity
+            style={[
+              styles.paymentOption,
+              selectedPayment === "cash" && { borderColor: colors.primary, backgroundColor: "rgba(76, 175, 80, 0.06)" },
+            ]}
+            onPress={() => setSelectedPayment("cash")}
+          >
+            <View style={styles.paymentLeft}>
+              <Ionicons
+                name="cash-outline"
+                size={20}
+                color={selectedPayment === "cash" ? colors.primary : colors.textLight}
+              />
+              <Text style={styles.paymentTitle}>
+                {selectedDeliveryType === "collection"
+                  ? "Cash on Collection"
+                  : "Cash on Delivery"}
+              </Text>
+            </View>
+            <View style={[styles.radioButton, selectedPayment === "cash" && { borderColor: colors.primary }]}>
+              {selectedPayment === "cash" && <View style={styles.radioButtonSelected} />}
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Bill Summary */}
@@ -576,7 +781,9 @@ export default function CartScreen({ navigation, route }) {
           {selectedDeliveryType === "delivery" && (
             <View style={styles.billRow}>
               <Text style={styles.billLabel}>Delivery Fee</Text>
-              <Text style={styles.billValue}>£{deliveryFee.toFixed(2)}</Text>
+              <Text style={styles.billValue}>
+                {deliveryCharge > 0 ? `£${deliveryCharge.toFixed(2)}` : 'Free'}
+              </Text>
             </View>
           )}
           <View style={[styles.billRow, styles.totalRow]}>
@@ -593,12 +800,20 @@ export default function CartScreen({ navigation, route }) {
           <Text style={[styles.orderAmount, { fontSize: 18 }]}>£{total.toFixed(2)}</Text>
         </View>
         <TouchableOpacity 
-          style={[styles.placeOrderBtn, { backgroundColor: isPlacingOrder ? "#666" : "#000" }]} 
+          style={[
+            styles.placeOrderBtn, 
+            { 
+              backgroundColor: (isPlacingOrder || isCalculatingDelivery) ? "#666" : "#000",
+              opacity: (isPlacingOrder || isCalculatingDelivery) ? 0.7 : 1
+            }
+          ]} 
           onPress={handlePlaceOrder}
-          disabled={isPlacingOrder}
+          disabled={isPlacingOrder || isCalculatingDelivery}
         >
           {isPlacingOrder ? (
             <LoadingSpinner size="small" color="#fff" />
+          ) : isCalculatingDelivery ? (
+            <Text style={[styles.placeOrderText, { color: "#fff" }]}>Calculating... ⏳</Text>
           ) : (
             <Text style={[styles.placeOrderText, { color: "#fff" }]}>Place Order ▶</Text>
           )}
@@ -628,6 +843,16 @@ export default function CartScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
+            {/* Delivery Warning in Modal */}
+            {selectedDeliveryType === "delivery" && !deliveryAvailable && (
+              <View style={styles.modalWarningBar}>
+                <Ionicons name="warning" size={16} color="#FF6B35" />
+                <Text style={styles.modalWarningText}>
+                  Current location is {calculatedDistance ? `${calculatedDistance} km` : ''} away and outside delivery range. Please select a different address.
+                </Text>
+              </View>
+            )}
+
             <ScrollView 
               showsVerticalScrollIndicator={false}
               style={styles.addressModalScroll}
@@ -651,8 +876,19 @@ export default function CartScreen({ navigation, route }) {
                 <Text style={styles.savedAddressesLabel}>SAVED ADDRESSES</Text>
               )}
               
+              {addresses.length === 0 && (
+                <View style={styles.noAddressesContainer}>
+                  <Ionicons name="location-outline" size={48} color={colors.textLight} />
+                  <Text style={styles.noAddressesTitle}>No Saved Addresses</Text>
+                  <Text style={styles.noAddressesSubtitle}>
+                    Add your first address to get started
+                  </Text>
+                </View>
+              )}
+              
               {addresses.map((addr) => {
                 const isSelected = selectedLocation?.id === addr.id;
+                const isPassedLocation = passedLocation && addr.id === passedLocation.id;
                 return (
                   <TouchableOpacity
                     key={addr.id}
@@ -662,7 +898,9 @@ export default function CartScreen({ navigation, route }) {
                     ]}
                     onPress={() => {
                       setSelectedLocation(addr);
+                      setUserHasSelectedAddress(true); // Mark that user has manually selected an address
                       setAddressModalVisible(false);
+                      checkDeliveryAvailability(addr);
                     }}
                     activeOpacity={0.7}
                   >
@@ -677,14 +915,14 @@ export default function CartScreen({ navigation, route }) {
                           color={isSelected ? colors.primary : colors.textLight} 
                         />
                       </View>
-                      <View style={styles.addressCardText}>
-                        <Text style={styles.addressCardTitle}>
-                          {addr.addressline1}
-                        </Text>
-                        <Text style={styles.addressCardSubtitle}>
-                          {addr.area}, {addr.city}
-                        </Text>
-                      </View>
+                    <View style={styles.addressCardText}>
+                      <Text style={styles.addressCardTitle}>
+                        {addr.addressline1}
+                      </Text>
+                      <Text style={styles.addressCardSubtitle}>
+                        {addr.area}, {addr.city}
+                      </Text>
+                    </View>
                     </View>
                     {isSelected && (
                       <View style={styles.selectedBadge}>
@@ -855,6 +1093,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
     marginTop: 2,
+  },
+  addressBarDistance: {
+    fontSize: 12,
+    color: colors.textLight,
+    marginTop: 2,
+    fontWeight: '500',
   },
   locationInfo: {
     flexDirection: 'row',
@@ -1324,5 +1568,86 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  deliveryWarningBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    backgroundColor: '#FFF3E0',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF6B35',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+  },
+  warningLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  warningText: {
+    flex: 1,
+  },
+  warningTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF6B35',
+    marginBottom: 2,
+  },
+  warningSubtitle: {
+    fontSize: 12,
+    color: '#E65100',
+  },
+  changeLocationBtn: {
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  changeLocationText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalWarningBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  modalWarningText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#E65100',
+    fontWeight: '500',
+  },
+  passedLocationIndicator: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+  noAddressesContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  noAddressesTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noAddressesSubtitle: {
+    fontSize: 14,
+    color: colors.textLight,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

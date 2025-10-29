@@ -44,6 +44,11 @@ export class Restaurant {
     return this.cuisine.join(", ");
   }
 
+  setDistance(distance, duration) {
+    this.distance = distance;
+    this.duration = duration;
+  }
+
   getImageUrl() {
     const { Upload_URL } = require("../api/client");
     return `${Upload_URL}${this.profileImage.startsWith("/") ? "" : "/"}${
@@ -51,14 +56,30 @@ export class Restaurant {
     }`;
   }
 
-  // ADD THIS METHOD
   getDeliveryCharge() {
-    if (!this.distance) return null;
+    if (!this.distance || !this.deliveryRanges.length) return null;
     
+    const distance = parseFloat(this.distance);
+    
+    // Find the appropriate delivery range for this distance
     const range = this.deliveryRanges.find(
-      (r) => this.distance >= r.minKm && this.distance <= r.maxKm
+      (r) => distance >= r.minKm && distance <= r.maxKm
     );
-    return range ? range.charge : null;
+    
+    if (range) {
+      return range.charge;
+    }
+    
+    // If no range found, check if distance exceeds all ranges
+    const maxRange = this.deliveryRanges.reduce((max, current) => 
+      current.maxKm > max.maxKm ? current : max
+    );
+    
+    if (distance > maxRange.maxKm) {
+      return maxRange.charge;
+    }
+    
+    return null;
   }
 
   toCardData() {

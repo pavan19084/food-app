@@ -153,19 +153,11 @@ export default function RestaurantScreen({ navigation, route }) {
   const increment = (itemId) => {
     const item = allMenuItems.find((i) => i.id === itemId);
     if (item) {
-      const restaurantInfo = {
+      const cartRestaurantInfo = {
         restaurantId: restaurantId,
         restaurantName: restaurantTitle,
         restaurantImage: restaurantCover || 'https://via.placeholder.com/400',
-        restaurantData: {
-          deliveryAvailable: restaurantData?.deliveryAvailable,
-          collectionAvailable: restaurantData?.collectionAvailable,
-          cardPaymentAvailable: restaurantData?.cardPaymentAvailable,
-          cashOnDeliveryAvailable: restaurantData?.cashOnDeliveryAvailable,
-          deliveryTime: restaurantData?.deliveryTime,
-          collectionTime: restaurantData?.collectionTime,
-          contactNumber: restaurantData?.contactNumber,
-        },
+        restaurantData: restaurantInfo, // Pass the original Restaurant object from route params
       };
 
       // Show alert if switching restaurants
@@ -181,13 +173,13 @@ export default function RestaurantScreen({ navigation, route }) {
             {
               text: "Yes, Replace",
               onPress: () => {
-                addToCart(item, restaurantInfo);
+                addToCart(item, cartRestaurantInfo);
               },
             },
           ],
         });
       } else {
-        addToCart(item, restaurantInfo);
+        addToCart(item, cartRestaurantInfo);
       }
     }
   };
@@ -200,11 +192,14 @@ export default function RestaurantScreen({ navigation, route }) {
   const totalPrice = getTotalPrice();
 
   const navigateToCart = () => {
+    const { currentLocation } = route?.params || {};
+    
     navigation.navigate("Cart", {
       cartItems: cart.items,
       restaurantName: cart.restaurantName,
       restaurantData: cart.restaurantData,
       restaurantId: cart.restaurantId,
+      currentLocation: currentLocation,
     });
   };
 

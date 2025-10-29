@@ -12,12 +12,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/colors';
 import { LocationService } from '../utils/locationService';
-import { useFocusEffect } from '@react-navigation/native'; // <-- import this
+import { useFocusEffect } from '@react-navigation/native'; 
+import { useAuth } from '../context/AuthContext';
 
 const LocationModal = ({ navigation, route }) => {
   const { onLocationSelect } = route?.params || {};
   const visible = true;
   const onClose = () => navigation.goBack();
+  const { user } = useAuth();
 
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
@@ -106,12 +108,11 @@ const LocationModal = ({ navigation, route }) => {
             <View style={styles.addressInfo}>
               <View style={styles.addressTitleRow}>
                 <Text style={styles.addressName}>{item.addressline1 || 'Home'}</Text>
-                <Text style={styles.addressDistance}>8 m</Text>
               </View>
               <Text style={styles.addressText} numberOfLines={2}>
                 {formatAddress(item)}
               </Text>
-              <Text style={styles.addressPhone}>+91-9104562733</Text>
+              <Text style={styles.addressPhone}>{user?.phone}</Text>
               {item.delivery_instructions && (
                 <Text style={styles.deliveryInstructions}>
                   Instructions: {item.delivery_instructions}
@@ -267,7 +268,6 @@ const styles = StyleSheet.create({
   addressInfo: { flex: 1 },
   addressTitleRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   addressName: { fontSize: 16, fontWeight: '600', color: '#333' },
-  addressDistance: { fontSize: 12, color: colors.textLight },
   addressText: { fontSize: 14, color: '#333', lineHeight: 20 },
   addressPhone: { fontSize: 14, color: colors.textLight, marginTop: 4 },
   deliveryInstructions: { fontSize: 12, color: '#666', fontStyle: 'italic', marginTop: 4 },

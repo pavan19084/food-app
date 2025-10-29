@@ -15,6 +15,13 @@ export class Order {
     this.status = orderData.status || "pending";
     this.deliveryTime = orderData.delivery_time;
     this.specialInstructions = orderData.special_instructions;
+
+    this.preparationTime = orderData.preparationTime || orderData.delivery_time;
+    this.deliveryTimeMinutes = orderData.deliveryTimeMinutes || orderData.delivery_time_minutes;
+    this.totalTimeMinutes = orderData.totalTimeMinutes || orderData.total_time_minutes;
+    this.orderPlacedAt = orderData.orderPlacedAt || orderData.created_at || new Date().toISOString();
+    this.deliveryDistance = orderData.deliveryDistance;
+    
     this.cancellationReason = orderData.cancellation_reason;
     this.createdAt = orderData.created_at || orderData.createdAt;
     this.updatedAt = orderData.updated_at || orderData.updatedAt;
@@ -26,7 +33,13 @@ export class Order {
     this.restaurant = orderData.restaurant;
     this.user_location = orderData.user_location;
 
-    this.restaurantContact = orderData.restaurantContact;
+    // Extract restaurant coordinates
+    this.restaurantLatitude = orderData.restaurant?.latitude;
+    this.restaurantLongitude = orderData.restaurant?.longitude;
+
+    // Extract restaurant contact info
+    this.restaurantContact = orderData.restaurantContact || orderData.restaurant?.phone;
+    this.restaurantEmail = orderData.restaurantEmail || orderData.restaurant?.email;
     this.total = parseFloat(this.totalPrice) || 0;
     this.subtotal = parseFloat(orderData.subtotal) || 0;
     this.deliveryFee = parseFloat(orderData.delivery_fee) || 0;
@@ -63,21 +76,61 @@ export class Order {
   }
 
   formatAddress(location) {
-  if (!location) return 'Address not available';
-  
-  const parts = [
-    location.addressline1,
-    location.addressline2,
-    location.area,
-    location.city,
-    location.state,
-    location.pincode,
-    location.country
-  ].filter(Boolean);
-  
-  return parts.join(', ');
-}
+    if (!location) return 'Address not available';
+    
+    const parts = [
+      location.addressline1,
+      location.addressline2,
+      location.area,
+      location.city,
+      location.state,
+      location.pincode,
+      location.country
+    ].filter(Boolean);
+    
+    return parts.join(', ');
+  }
 
+  // NEW METHOD: Set delivery distance data ONCE when order is placed
+  setDeliveryDistanceData(distanceKm, durationMinutes) {
+    this.deliveryDistance = distanceKm;
+    this.deliveryTimeMinutes = durationMinutes;
+    // Don't calculate total yet - wait for preparation time from API
+  }
+
+  // UPDATED METHOD: Set timer data for the order
+  setTimerData(preparationTime, deliveryTimeMinutes) {
+    this.preparationTime = preparationTime; // From API when confirmed
+    
+    // Use stored deliveryTimeMinutes if not provided
+    if (deliveryTimeMinutes) {
+      this.deliveryTimeMinutes = deliveryTimeMinutes;
+    }
+    
+    this.totalTimeMinutes = this.calculateTotalTime();
+    if (!this.orderPlacedAt) {
+      this.orderPlacedAt = this.createdAt || new Date().toISOString();
+    }
+  }
+
+  // UPDATED METHOD: Calculate total time from preparation and delivery
+  calculateTotalTime() {
+    if (!this.preparationTime) return this.deliveryTimeMinutes || 0;
+    
+    // Convert preparation time from "20:35" format to minutes
+    const prepMinutes = this.convertTimeToMinutes(this.preparationTime);
+    const total = prepMinutes + (this.deliveryTimeMinutes || 0);
+    
+    return total;
+  }
+
+  // Convert time string "20:35" to minutes
+  convertTimeToMinutes(timeString) {
+    if (!timeString || typeof timeString !== 'string') return 0;
+    
+    const [minutes, seconds] = timeString.split(':').map(Number);
+    return minutes + (seconds / 60);
+  }
 
   // Calculate estimated delivery time in minutes
   calculateEstimatedDeliveryTime() {
@@ -108,7 +161,7 @@ export class Order {
         ? "Delivered"
         : "Ready for collection";
     }
-    return `${remaining} min left`;
+    return `${remaining} left`;
   }
 
   // Get total items count
@@ -140,6 +193,49 @@ export class Order {
     this.saveToStorage();
   }
 
+  // NEW METHOD: Serialize for AsyncStorage
+  toJSON() {
+    return {
+      id: this.id,
+      orderId: this.orderId,
+      userId: this.userId,
+      restaurantId: this.restaurantId,
+      locationId: this.locationId,
+      items: this.items,
+      totalPrice: this.totalPrice,
+      paymentType: this.paymentType,
+      orderType: this.orderType,
+      status: this.status,
+      deliveryTime: this.deliveryTime,
+      specialInstructions: this.specialInstructions,
+      preparationTime: this.preparationTime,
+      deliveryTimeMinutes: this.deliveryTimeMinutes,
+      totalTimeMinutes: this.totalTimeMinutes,
+      orderPlacedAt: this.orderPlacedAt,
+      deliveryDistance: this.deliveryDistance,
+      cancellationReason: this.cancellationReason,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+      restaurantName: this.restaurantName,
+      restaurant: this.restaurant,
+      user_location: this.user_location,
+      restaurantLatitude: this.restaurantLatitude,
+      restaurantLongitude: this.restaurantLongitude,
+      restaurantContact: this.restaurantContact,
+      restaurantEmail: this.restaurantEmail,
+      total: this.total,
+      subtotal: this.subtotal,
+      deliveryFee: this.deliveryFee,
+      discount: this.discount,
+      deliveryType: this.deliveryType,
+      deliveryAddress: this.deliveryAddress,
+      estimatedDelivery: this.estimatedDelivery,
+      paymentMethod: this.paymentMethod,
+      orderTime: this.orderTime,
+      orderDate: this.orderDate,
+    };
+  }
+
   // Save order to AsyncStorage
   async saveToStorage() {
     try {
@@ -147,9 +243,9 @@ export class Order {
       const existingIndex = orders.findIndex((order) => order.id === this.id);
 
       if (existingIndex >= 0) {
-        orders[existingIndex] = this;
+        orders[existingIndex] = this.toJSON();
       } else {
-        orders.push(this);
+        orders.push(this.toJSON());
       }
 
       await AsyncStorage.setItem("@orders", JSON.stringify(orders));
@@ -241,6 +337,7 @@ export class Order {
       console.error("Error clearing orders:", error);
     }
   }
+  
   static async removeActiveOrder() {
     try {
       const activeOrder = await Order.getActiveOrder();

@@ -206,28 +206,45 @@ export default function OrderDetails() {
         {/* Payment Summary */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Payment Summary</Text>
-          {order.subtotal > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>£{order.subtotal.toFixed(2)}</Text>
-            </View>
-          )}
-          {order.deliveryFee > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Delivery Fee</Text>
-              <Text style={styles.summaryValue}>£{order.deliveryFee.toFixed(2)}</Text>
-            </View>
-          )}
-          {order.discount > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Discount</Text>
-              <Text style={styles.summaryValue}>-£{order.discount.toFixed(2)}</Text>
-            </View>
-          )}
-          <View style={[styles.summaryRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>£{parseFloat(order.total).toFixed(2)}</Text>
-          </View>
+          {(() => {
+            // Calculate subtotal from individual items
+            const subtotal = order.items ? order.items.reduce((sum, item) => {
+              return sum + ((item.price || 0) * (item.quantity || 0));
+            }, 0) : 0;
+            
+            // Calculate delivery fee for delivery orders
+            const deliveryFee = order.orderType === "delivery" ? 
+              (parseFloat(order.total) - subtotal) : 0;
+            
+            return (
+              <View style={styles.totalsContainer}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Subtotal</Text>
+                  <Text style={styles.summaryValue}>£{subtotal.toFixed(2)}</Text>
+                </View>
+                
+                {order.orderType === "delivery" && deliveryFee > 0 && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Delivery Fee</Text>
+                    <Text style={styles.summaryValue}>£{deliveryFee.toFixed(2)}</Text>
+                  </View>
+                )}
+                
+                {order.discount > 0 && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Discount</Text>
+                    <Text style={styles.summaryValue}>-£{order.discount.toFixed(2)}</Text>
+                  </View>
+                )}
+                
+                <View style={[styles.summaryRow, styles.totalRow]}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>£{parseFloat(order.total).toFixed(2)}</Text>
+                </View>
+              </View>
+            );
+          })()}
+          
           <View style={styles.detailRow}>
             <Ionicons name="card-outline" size={16} color={colors.lightMode.textLight} />
             <Text style={styles.detailText}>{order.paymentMethod}</Text>
@@ -387,10 +404,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.lightMode.text,
   },
+  totalsContainer: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.lightMode.border,
+  },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
+    paddingVertical: 4,
   },
   summaryLabel: {
     fontSize: 14,
@@ -401,19 +425,23 @@ const styles = StyleSheet.create({
     color: colors.lightMode.text,
   },
   totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.lightMode.border,
-    paddingTop: 8,
-    marginTop: 8,
+    borderTopWidth: 2,
+    borderTopColor: colors.primary,
+    backgroundColor: colors.lightMode.background,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    marginHorizontal: -4,
   },
   totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '900',
     color: colors.lightMode.text,
   },
   totalValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '900',
     color: colors.primary,
   },
   errorContainer: {

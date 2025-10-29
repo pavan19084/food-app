@@ -12,7 +12,6 @@ import {
 import { getUserById, patchUser } from '../api/user';
 import { mapUser ,updateUser } from '../models/user';
 import { setOnUnauthorized } from '../api/client';
-import { Alert } from 'react-native';
 
 const AuthContext = createContext(null);
 
@@ -33,7 +32,7 @@ export const AuthProvider = ({ children, onLoggedOut }) => {
           setToken(t);
           setUser(JSON.parse(u));
           try {
-            const vt = await apiVerifyToken(); // shape can be { user } or { id } or { userId }
+            const vt = await apiVerifyToken(); 
             let verifiedUser = null;
 
             if (vt?.user) {
@@ -41,7 +40,6 @@ export const AuthProvider = ({ children, onLoggedOut }) => {
             } else if (vt?.id || vt?.userId) {
               const uid = vt?.id ?? vt?.userId;
               const res = await getUserById(uid);
-              // backend may return { user } or raw user object
               verifiedUser = mapUser(res?.user ?? res);
             }
 
@@ -65,7 +63,6 @@ export const AuthProvider = ({ children, onLoggedOut }) => {
     setUser(null);
     setToken(null);
     await AsyncStorage.multiRemove(['@auth_token', '@auth_user']);
-    if (!silent) Alert.alert('Session expired', 'Please log in again.');
     if (typeof onLoggedOut === 'function') onLoggedOut();
   };
   setOnUnauthorized(signOut);

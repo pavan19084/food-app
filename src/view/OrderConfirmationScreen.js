@@ -19,8 +19,10 @@ import { Order } from "../models/order";
 import { trackOrder } from "../api/order";
 import { useAlert } from "../hooks/useAlert";
 import CustomAlert from "../components/CustomAlert";
+import DeliveryTimer from "../components/DeliveryTimer";
+import NotificationService from "../utils/notificationService";
 
-const STAGES = [
+const DELIVERY_STAGES = [
   {
     key: "pending",
     title: "Pending",
@@ -40,15 +42,36 @@ const STAGES = [
     icon: "restaurant",
   },
   {
-    key: "out_for_delivery",
-    title: "Out for Delivery",
-    desc: "Your order is on the way.",
-    icon: "bicycle",
-  },
-  {
     key: "delivered",
     title: "Delivered",
     desc: "Enjoy your meal!",
+    icon: "checkmark-done",
+  },
+];
+
+const COLLECTION_STAGES = [
+  {
+    key: "pending",
+    title: "Pending",
+    desc: "Waiting for restaurant confirmation.",
+    icon: "time-outline",
+  },
+  {
+    key: "confirmed",
+    title: "Confirmed",
+    desc: "Restaurant confirmed your order.",
+    icon: "checkmark-circle",
+  },
+  {
+    key: "prepared",
+    title: "Prepared",
+    desc: "Your food is ready for collection.",
+    icon: "restaurant",
+  },
+  {
+    key: "collected",
+    title: "Collected",
+    desc: "Order collected successfully!",
     icon: "checkmark-done",
   },
 ];
@@ -61,6 +84,24 @@ export default function OrderConfirmationScreen({ navigation, route }) {
   const order = useMemo(() => {
     if (orderDetails) {
       const newOrder = new Order(orderDetails);
+      
+      // Extract delivery address from user_location if available
+      if (orderDetails.user_location) {
+        const { addressline1, addressline2, area, city, state, pincode } = orderDetails.user_location;
+        const addressParts = [addressline1, addressline2, area, city, state, pincode].filter(Boolean);
+        newOrder.deliveryAddress = addressParts.join(', ');
+      }
+      
+      // Extract restaurant contact from restaurant object if available
+      if (orderDetails.restaurant && orderDetails.restaurant.phone) {
+        newOrder.restaurantContact = orderDetails.restaurant.phone;
+      }
+      
+      // Extract restaurant email from restaurant object if available
+      if (orderDetails.restaurant && orderDetails.restaurant.email) {
+        newOrder.restaurantEmail = orderDetails.restaurant.email;
+      }
+
       return newOrder;
     }
     return null;
@@ -68,6 +109,7 @@ export default function OrderConfirmationScreen({ navigation, route }) {
 
   const [currentOrder, setCurrentOrder] = useState(order);
   const [isTracking, setIsTracking] = useState(false);
+  const [previousStatus, setPreviousStatus] = useState(order?.status);
 
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(20)).current;
@@ -99,7 +141,30 @@ export default function OrderConfirmationScreen({ navigation, route }) {
       const result = await trackOrder(currentOrder.orderId);
       if (result.success && result.data) {
         const updatedOrder = Order.createFromApiResponse(result.data);
+        
+        // Extract delivery address from user_location if available
+        if (result.data.user_location) {
+          const { addressline1, addressline2, area, city, state, pincode } = result.data.user_location;
+          const addressParts = [addressline1, addressline2, area, city, state, pincode].filter(Boolean);
+          updatedOrder.deliveryAddress = addressParts.join(', ');
+        }
+        
+        // Extract restaurant contact from restaurant object if available
+        if (result.data.restaurant && result.data.restaurant.phone) {
+          updatedOrder.restaurantContact = result.data.restaurant.phone;
+        }
+        
+        // Extract restaurant email from restaurant object if available
+        if (result.data.restaurant && result.data.restaurant.email) {
+          updatedOrder.restaurantEmail = result.data.restaurant.email;
+        }
+
         setCurrentOrder(updatedOrder);
+        
+        // Update previous status for tracking (notifications handled by OrderContext)
+        if (previousStatus !== updatedOrder.status) {
+          setPreviousStatus(updatedOrder.status);
+        }
       }
     } catch (error) {
       console.error("Error tracking order:", error);
@@ -159,8 +224,17 @@ export default function OrderConfirmationScreen({ navigation, route }) {
   } else {
   }
 
-  const stageIndex = STAGES.findIndex((s) => s.key === currentOrder.status);
-  const delivered = currentOrder.status === "delivered";
+  // Get appropriate stages based on order type
+  const STAGES = currentOrder.deliveryType === "collection" ? COLLECTION_STAGES : DELIVERY_STAGES;
+  
+  // Treat "out_for_delivery" as "prepared" for display
+  let displayStatus = currentOrder.status;
+  if (currentOrder.status === 'out_for_delivery') {
+    displayStatus = 'prepared';
+  }
+  
+  const stageIndex = STAGES.findIndex((s) => s.key === displayStatus);
+  const isCompleted = currentOrder.status === "delivered" || currentOrder.status === "collected";
   const currentStage = STAGES[stageIndex] || STAGES[0];
 
   // progress animation
@@ -205,7 +279,7 @@ export default function OrderConfirmationScreen({ navigation, route }) {
             />
           </View>
           <Text style={styles.titleText}>
-            {delivered ? "Order Delivered 🎉" : "Order In Progress"}
+            {isCompleted ? (currentOrder.deliveryType === "collection" ? "Order Collected 🎉" : "Order Delivered 🎉") : "Order In Progress"}
           </Text>
           <Text style={styles.subText}>{currentStage.desc}</Text>
 
@@ -214,7 +288,7 @@ export default function OrderConfirmationScreen({ navigation, route }) {
               style={[
                 styles.dot,
                 {
-                  backgroundColor: delivered ? colors.success : colors.primary,
+                  backgroundColor: isCompleted ? colors.success : colors.primary,
                 },
               ]}
             />
@@ -230,14 +304,14 @@ export default function OrderConfirmationScreen({ navigation, route }) {
             />
           </View>
           <Text style={styles.progressLabel}>
-            {delivered
-              ? "Delivered"
+            {isCompleted
+              ? (currentOrder.deliveryType === "collection" ? "Collected" : "Delivered")
               : `Step ${stageIndex + 1} of ${STAGES.length}`}
           </Text>
           <View style={styles.stagesRow}>
             {STAGES.map((s, i) => {
-              const isDone = i < stageIndex || delivered;
-              const isNow = i === stageIndex && !delivered;
+              const isDone = i < stageIndex || isCompleted;
+              const isNow = i === stageIndex && !isCompleted;
               return (
                 <View key={s.key} style={styles.stageChip}>
                   <View
@@ -278,6 +352,14 @@ export default function OrderConfirmationScreen({ navigation, route }) {
           </View>
         </View>
 
+        {/* Delivery Timer - Hero Style */}
+        <DeliveryTimer
+          orderStatus={currentOrder.status}
+          orderType={currentOrder.deliveryType}
+          variant="hero"
+          style={styles.timerCard}
+        />
+
         {/* Order details */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -294,7 +376,11 @@ export default function OrderConfirmationScreen({ navigation, route }) {
                 : "Collection"
             }
           />
-          <Row label="Payment" value={currentOrder.paymentMethod} />
+          <Row label="Payment" value={
+            currentOrder.deliveryType === "collection" 
+              ? (currentOrder.paymentType === "cash" ? "Cash on Collection" : "Card Payment")
+              : currentOrder.paymentMethod
+          } />
           <Row label="Status" value={currentOrder.status} />
         </View>
 
@@ -327,33 +413,58 @@ export default function OrderConfirmationScreen({ navigation, route }) {
               <Text style={styles.itemName}>No items found</Text>
             </View>
           )}
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalAmount}>
-              £{(currentOrder.total || 0).toFixed(2)}
-            </Text>
-          </View>
+          {/* Calculate subtotal from individual items */}
+          {(() => {
+            const subtotal = orderItems.reduce((sum, item) => {
+              return sum + ((item.price || 0) * (item.quantity || 0));
+            }, 0);
+            
+            const deliveryFee = currentOrder.deliveryType === "delivery" ? 
+              ((currentOrder.total || 0) - subtotal) : 0;
+            
+            return (
+              <View style={styles.totalsContainer}>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Subtotal</Text>
+                  <Text style={styles.totalAmount}>
+                    £{subtotal.toFixed(2)}
+                  </Text>
+                </View>
+                
+                {currentOrder.deliveryType === "delivery" && deliveryFee > 0 && (
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLabel}>Delivery Fee</Text>
+                    <Text style={styles.totalAmount}>
+                      £{deliveryFee.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+                
+                <View style={[styles.totalRow, styles.finalTotalRow]}>
+                  <Text style={styles.finalTotalLabel}>Total</Text>
+                  <Text style={styles.finalTotalAmount}>
+                    £{(currentOrder.total || 0).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
         </View>
 
-        {/* Delivery / Collection */}
+        {/* Location Information */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons
-              name={
-                currentOrder.deliveryType === "delivery"
-                  ? "location"
-                  : "storefront"
-              }
-              size={22}
-              color={colors.primary}
-            />
+            <Ionicons name="location" size={22} color={colors.primary} />
             <Text style={styles.cardTitle}>
-              {currentOrder.deliveryType === "delivery"
-                ? "Delivery"
-                : "Collection"}
+              {currentOrder.deliveryType === "delivery" ? "Delivery Address" : "Restaurant Location"}
             </Text>
           </View>
-          <Text style={styles.address}>{currentOrder.deliveryAddress}</Text>
+          <Text style={styles.address}>
+            {currentOrder.deliveryType === "delivery" 
+              ? (currentOrder.deliveryAddress || 'Address not available')
+              : (currentOrder.restaurantName || 'Restaurant location not available')
+            }
+          </Text>
         </View>
 
         {/* Restaurant Contact */}
@@ -362,70 +473,70 @@ export default function OrderConfirmationScreen({ navigation, route }) {
             <Ionicons name="call-outline" size={22} color={colors.primary} />
             <Text style={styles.cardTitle}>Restaurant Contact</Text>
           </View>
-          {currentOrder.deliveryType === "delivery" ? (
-            <View>
-              <Text style={styles.contactText}>
-                For any order-related issues, contact the restaurant directly:
+          
+          <View>
+            <Text style={styles.contactText}>
+              {currentOrder.deliveryType === "delivery" 
+                ? "For any order-related issues, contact the restaurant directly:"
+                : "Your order is ready for collection. Contact the restaurant:"
+              }
+            </Text>
+            
+            {/* Phone Contact - Always shown */}
+            <TouchableOpacity
+              style={styles.contactButton}
+              onPress={() =>
+                Linking.openURL(`tel:${currentOrder.restaurantContact}`)
+              }
+            >
+              <Ionicons name="call" size={16} color="#FFFFFF" />
+              <Text style={styles.contactButtonText}>
+                {currentOrder.restaurantContact}
               </Text>
+            </TouchableOpacity>
+            
+            {/* Email Contact - Always shown if available */}
+            {currentOrder.restaurantEmail && (
               <TouchableOpacity
-                style={styles.contactButton}
+                style={[styles.contactButton, { marginTop: 8 }]}
                 onPress={() =>
-                  Linking.openURL(`tel:${currentOrder.restaurantContact}`)
+                  Linking.openURL(`mailto:${currentOrder.restaurantEmail}`)
                 }
               >
-                <Ionicons name="call" size={16} color="#FFFFFF" />
+                <MaterialIcons name="email" size={16} color="#FFFFFF" />
                 <Text style={styles.contactButtonText}>
-                  {currentOrder.restaurantContact}
+                  {currentOrder.restaurantEmail}
                 </Text>
               </TouchableOpacity>
-              {currentOrder.restaurantEmail && (
-                <TouchableOpacity
-                  style={styles.contactButton}
-                  onPress={() =>
-                    Linking.openURL(`mailto:${currentOrder.restaurantEmail}`)
-                  }
-                >
-                  <MaterialIcons name="email" size={16} color="#FFFFFF" />
-                  <Text style={styles.contactButtonText}>
-                    {currentOrder.restaurantEmail}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            <View>
-              <Text style={styles.contactText}>
-                Your order is ready for collection at:
-              </Text>
-              <Text style={styles.address}>
-                {currentOrder.restaurantAddress}
-              </Text>
+            )}
+            
+            {/* Get Directions - Only for collection orders */}
+            {currentOrder.deliveryType === "collection" && (
               <TouchableOpacity
-                style={styles.contactButton}
-                onPress={() =>
-                  Linking.openURL(
-                    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                      currentOrder.restaurantAddress
-                    )}`
-                  )
-                }
+                style={[styles.contactButton, { backgroundColor: colors.primary, marginTop: 8 }]}
+                onPress={() => {
+                  const restaurantLat = currentOrder.restaurant?.latitude;
+                  const restaurantLng = currentOrder.restaurant?.longitude;
+                  if (restaurantLat && restaurantLng) {
+                    // Use exact coordinates for precise directions
+                    Linking.openURL(
+                      `https://www.google.com/maps/search/?api=1&query=${restaurantLat},${restaurantLng}`
+                    );
+                  } else {
+                    // Fallback to restaurant name if coordinates not available
+                    Linking.openURL(
+                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        currentOrder.restaurantName || 'Restaurant'
+                      )}`
+                    );
+                  }
+                }}
               >
                 <Ionicons name="map" size={16} color="#FFFFFF" />
                 <Text style={styles.contactButtonText}>Get Directions</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.contactButton}
-                onPress={() =>
-                  Linking.openURL(`tel:${currentOrder.restaurantContact}`)
-                }
-              >
-                <Ionicons name="call" size={16} color="#FFFFFF" />
-                <Text style={styles.contactButtonText}>
-                  {currentOrder.restaurantContact}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            )}
+          </View>
         </View>
       </ScrollView>
 
@@ -540,6 +651,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
+  timerCard: {
+    marginBottom: 20,
+    marginHorizontal: 4,
+  },
   cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   cardTitle: {
     marginLeft: 8,
@@ -550,25 +665,56 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: colors.lightMode.background,
-    borderRadius: 10,
-    marginBottom: 8,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    paddingHorizontal: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   itemName: { fontSize: 15, fontWeight: "700", color: colors.lightMode.text },
   itemMeta: { fontSize: 12, color: colors.lightMode.textLight, marginTop: 2 },
   itemPrice: { fontSize: 15, fontWeight: "800", color: colors.lightMode.text },
+  totalsContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.lightMode.background,
+  },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
-    paddingTop: 12,
+    paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.lightMode.background,
   },
   totalLabel: { fontSize: 16, fontWeight: "800", color: colors.lightMode.text },
   totalAmount: { fontSize: 18, fontWeight: "900", color: colors.primary },
+  finalTotalRow: {
+    borderTopWidth: 2,
+    borderTopColor: colors.primary,
+    backgroundColor: colors.lightMode.background,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    marginHorizontal: -4,
+  },
+  finalTotalLabel: { 
+    fontSize: 18, 
+    fontWeight: "900", 
+    color: colors.lightMode.text 
+  },
+  finalTotalAmount: { 
+    fontSize: 20, 
+    fontWeight: "900", 
+    color: colors.primary 
+  },
   address: {
     fontSize: 14,
     color: colors.lightMode.text,
